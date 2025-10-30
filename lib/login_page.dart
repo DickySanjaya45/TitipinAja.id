@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -11,7 +13,53 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   String username = '';
   String password = '';
+  bool isLoading = false;
 
+  // ============================
+  // FUNGSI LOGIN KE LARAVEL
+  // ============================
+  Future<void> login() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => isLoading = true);
+
+    try {
+      final url = Uri.parse('http://127.0.0.1:8000/api/login');
+
+      final response = await http.post(
+        url,
+        body: {
+          'username': username,
+          'password': password,
+        },
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Selamat datang, ${data['data']['nama']}!')),
+        );
+
+        // TODO: Ganti ke halaman utama
+        // Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomePage()));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(data['message'] ?? 'Login gagal')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal terhubung ke server: $e')),
+      );
+    } finally {
+      setState(() => isLoading = false);
+    }
+  }
+
+  // ============================
+  // UI LOGIN PAGE
+  // ============================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -44,9 +92,8 @@ class _LoginPageState extends State<LoginPage> {
                         border: OutlineInputBorder(),
                       ),
                       onChanged: (value) => username = value,
-                      validator: (value) => value == null || value.isEmpty
-                          ? 'Masukkan username'
-                          : null,
+                      validator: (value) =>
+                          value == null || value.isEmpty ? 'Masukkan username' : null,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -56,9 +103,8 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       obscureText: true,
                       onChanged: (value) => password = value,
-                      validator: (value) => value == null || value.isEmpty
-                          ? 'Masukkan password'
-                          : null,
+                      validator: (value) =>
+                          value == null || value.isEmpty ? 'Masukkan password' : null,
                     ),
                     const SizedBox(height: 24),
                     SizedBox(
@@ -72,17 +118,10 @@ class _LoginPageState extends State<LoginPage> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        onPressed: () {
-                          if (_formKey.currentState!.validate()) {
-                            // TODO: Implementasi login
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Login berhasil (dummy)!'),
-                              ),
-                            );
-                          }
-                        },
-                        child: const Text('Login'),
+                        onPressed: isLoading ? null : login,
+                        child: isLoading
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : const Text('Login'),
                       ),
                     ),
                   ],
