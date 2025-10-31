@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart'; // pastikan path-nya sesuai
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -21,17 +22,6 @@ class _RegisterPageState extends State<RegisterPage> {
   bool isConfirmPasswordVisible = false;
   bool isLoading = false;
 
-  // Simulasi database sementara
-  final List<Map<String, String>> dummyUsers = [
-    {
-      'email': 'admin@gmail.com',
-      'password': '12345',
-      'nama_lengkap': 'Admin Utama',
-      'no_telepon': '08123456789',
-      'alamat': 'Jl. Bunga No.1'
-    },
-  ];
-
   Future<void> register() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -42,32 +32,34 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
 
-    final existingUser = dummyUsers.any((u) => u['email'] == email);
-    if (existingUser) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Email sudah digunakan')),
-      );
-      return;
-    }
-
     setState(() => isLoading = true);
-    await Future.delayed(const Duration(seconds: 1));
 
-    dummyUsers.add({
-      'nama_lengkap': namaLengkap,
-      'alamat': alamat,
-      'no_telepon': noTelepon,
-      'email': email,
-      'password': password,
-    });
+    // 🔥 Panggil API Laravel lewat ApiService
+    final response = await ApiService.register(
+      namaLengkap: namaLengkap,
+      alamat: alamat,
+      noTelepon: noTelepon,
+      email: email,
+      password: password,
+    );
 
     setState(() => isLoading = false);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Registrasi berhasil, selamat datang $namaLengkap!')),
-    );
-
-    Navigator.pushReplacementNamed(context, '/login');
+    if (response['success'] == true) {
+      // ✅ Jika berhasil
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(response['message'] ?? 'Registrasi berhasil')),
+      );
+      Navigator.pushReplacementNamed(context, '/login');
+    } else {
+      // ❌ Jika gagal
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(response['message'] ?? 'Registrasi gagal'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override

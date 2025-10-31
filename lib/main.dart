@@ -28,7 +28,7 @@ class TitipinAjaApp extends StatelessWidget {
       routes: {
         '/login': (context) => const LoginPage(),
         '/dashboard_admin': (context) => const DashboardAdmin(),
-        '/dashboard_user': (context) => const DashboardUser(),
+        '/dashboard_user': (context) => const DashboardUser(userData: {}, token: ''),
       },
 
       // Jika route tidak ditemukan

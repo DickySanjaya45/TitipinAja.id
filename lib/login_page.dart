@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dashboard/dashboard_admin.dart';
 import 'dashboard/dashboard_user.dart';
 import 'pages/registerpage.dart';
+import 'services/api_service.dart'; // Import API Service
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -14,14 +15,9 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isLoading = false; // Tambahkan loading state
 
-  // Data login dummy
-  final List<Map<String, String>> users = [
-    {"email": "admin@gmail.com", "password": "12345", "role": "admin"},
-    {"email": "user@gmail.com", "password": "12345", "role": "user"},
-  ];
-
-  void _login() {
+  void _login() async {
     String email = emailController.text.trim();
     String password = passwordController.text.trim();
 
@@ -32,31 +28,67 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
-    final user = users.firstWhere(
-      (u) => u['email'] == email && u['password'] == password,
-      orElse: () => {},
-    );
+    setState(() {
+      _isLoading = true;
+    });
 
-    if (user.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Login berhasil! Selamat datang, ${user['email']}')),
-      );
+    try {
+      final result = await ApiService.login(email, password);
 
-      // Navigasi berdasarkan role
-      if (user['role'] == 'admin') {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const DashboardAdmin()),
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (!mounted) return;
+
+      if (result['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Login berhasil! Selamat datang')),
         );
-      } else if (user['role'] == 'user') {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const DashboardUser()),
+
+        // Ambil data pengguna dan token dari response
+        Map<String, dynamic> userData = {};
+        if (result['data'] is Map) {
+          userData = Map<String, dynamic>.from(result['data']);
+        }
+
+        // Token bisa berada di root response atau di dalam data, per berbagai API
+        final String token = (result['token'] as String?) ?? (userData['token'] as String?) ?? '';
+
+        // Normalisasi 'id' jika backend mengembalikan sebagai string
+        if (userData.containsKey('id')) {
+          final idVal = userData['id'];
+          if (idVal is String) {
+            final parsed = int.tryParse(idVal);
+            if (parsed != null) userData['id'] = parsed;
+          }
+        }
+
+        // Jika API menyediakan role, arahkan ke dashboard yang sesuai
+        final role = (userData['role'] as String?) ?? (result['role'] as String?) ?? '';
+
+        if (role.toLowerCase() == 'admin') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const DashboardAdmin()),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => DashboardUser(userData: userData, token: token)),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Login gagal')),
         );
       }
-    } else {
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Email atau password salah!')),
+        SnackBar(content: Text('Error: $e')),
       );
     }
   }
@@ -130,7 +162,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Tombol Login
+                  // Tombol Login dengan Loading
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -141,16 +173,25 @@ class _LoginPageState extends State<LoginPage> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      onPressed: _login,
-                      child: const Text(
-                        'LOGIN',
-                        style: TextStyle(fontSize: 16, color: Colors.white),
-                      ),
+                      onPressed: _isLoading ? null : _login,
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              'LOGIN',
+                              style: TextStyle(fontSize: 16, color: Colors.white),
+                            ),
                     ),
                   ),
                   const SizedBox(height: 16),
 
-                  // Tombol Register (opsional)
+                  // Tombol Register
                   TextButton(
                     onPressed: () {
                       Navigator.push(
