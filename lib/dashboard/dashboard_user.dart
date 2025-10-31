@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../login_page.dart';
 
 class DashboardUser extends StatelessWidget {
   const DashboardUser({super.key});
@@ -33,7 +34,13 @@ class DashboardUser extends StatelessWidget {
                 _buildMenuItem(Icons.payment, "Pembayaran"),
                 _buildMenuItem(Icons.history, "Riwayat"),
                 const Spacer(),
-                _buildMenuItem(Icons.logout, "Logout"),
+                _buildMenuItem(Icons.logout, "Logout", onTap: () {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginPage()),
+                    (route) => false,
+                  );
+                }),
                 const SizedBox(height: 20),
               ],
             ),
@@ -100,11 +107,11 @@ class DashboardUser extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuItem(IconData icon, String title) {
+  Widget _buildMenuItem(IconData icon, String title, {VoidCallback? onTap}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16),
       child: InkWell(
-        onTap: () {},
+        onTap: onTap ?? () {},
         borderRadius: BorderRadius.circular(8),
         child: Row(
           children: [

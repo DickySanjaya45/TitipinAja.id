@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/custom_appbar.dart';
+import '../login_page.dart';
 import 'pengguna_page.dart';
 import 'motor_page.dart';
 import 'pembayaran_page.dart';
@@ -115,7 +116,13 @@ class _DashboardAdminState extends State<DashboardAdmin> {
             );
           }),
           const Spacer(),
-          _buildSidebarItem(Icons.logout, "Logout"),
+          _buildSidebarItem(Icons.logout, "Logout", onTap: () {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (_) => const LoginPage()),
+              (route) => false,
+            );
+          }),
         ],
       ),
     );
@@ -178,15 +185,19 @@ class _DashboardAdminState extends State<DashboardAdmin> {
     );
   }
 
-  Widget _buildSidebarItem(IconData icon, String title) {
+  Widget _buildSidebarItem(IconData icon, String title, {VoidCallback? onTap}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.white, size: 22),
-          const SizedBox(width: 12),
-          Text(title, style: const TextStyle(color: Colors.white, fontSize: 16)),
-        ],
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.white, size: 22),
+            const SizedBox(width: 12),
+            Text(title, style: const TextStyle(color: Colors.white, fontSize: 16)),
+          ],
+        ),
       ),
     );
   }
