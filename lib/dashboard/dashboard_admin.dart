@@ -1,4 +1,11 @@
 import 'package:flutter/material.dart';
+import '../widgets/custom_appbar.dart';
+import 'pengguna_page.dart';
+import 'motor_page.dart';
+import 'pembayaran_page.dart';
+import 'riwayat_page.dart';
+import 'parkir_page.dart';
+import 'pengaturan_page.dart';
 
 class DashboardAdmin extends StatefulWidget {
   const DashboardAdmin({super.key});
@@ -20,24 +27,32 @@ class _DashboardAdminState extends State<DashboardAdmin> {
     "Pengaturan"
   ];
 
+  final List<IconData> _menuIcons = [
+    Icons.dashboard,
+    Icons.people,
+    Icons.motorcycle,
+    Icons.payment,
+    Icons.history,
+    Icons.local_parking,
+    Icons.settings,
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF9F9FB),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          // jika layar besar (desktop/tablet)
           if (constraints.maxWidth > 700) {
             return Row(
               children: [
                 _buildSidebar(),
-                Expanded(child: _buildMainContent(context)),
+                Expanded(child: _buildMainContent()),
               ],
             );
+          } else {
+            return _buildMainContent();
           }
-
-          // jika layar kecil (mobile)
-          return _buildMainContent(context);
         },
       ),
       bottomNavigationBar: MediaQuery.of(context).size.width < 700
@@ -47,7 +62,7 @@ class _DashboardAdminState extends State<DashboardAdmin> {
   }
 
   // ==============================
-  // SIDEBAR (untuk laptop/tablet)
+  // SIDEBAR
   // ==============================
   Widget _buildSidebar() {
     return Container(
@@ -107,95 +122,40 @@ class _DashboardAdminState extends State<DashboardAdmin> {
   }
 
   // ==============================
-  // KONTEN DASHBOARD
+  // KONTEN UTAMA (BERUBAH SESUAI MENU)
   // ==============================
-  Widget _buildMainContent(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // HEADER
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _menuTitles[_selectedIndex],
-                    style: const TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    "Selamat datang kembali, Admin!",
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.notifications_none),
-                    onPressed: () {},
-                  ),
-                  const CircleAvatar(
-                    backgroundColor: Colors.deepPurple,
-                    child: Text("AD", style: TextStyle(color: Colors.white)),
-                  ),
-                ],
-              ),
-            ],
-          ),
+  Widget _buildMainContent() {
+    Widget content;
 
-          const SizedBox(height: 32),
+    switch (_selectedIndex) {
+      case 0:
+        content = const DashboardHome();
+        break;
+      case 1:
+        content = const PenggunaPage();
+        break;
+      case 2:
+        content = const MotorPage();
+        break;
+      case 3:
+        content = const PembayaranPage();
+        break;
+      case 4:
+        content = const RiwayatPage();
+        break;
+      case 5:
+        content = const ParkirPage();
+        break;
+      case 6:
+        content = const PengaturanPage();
+        break;
+      default:
+        content = const Center(child: Text("Halaman tidak ditemukan"));
+    }
 
-          // STATISTIC CARDS (hanya di dashboard utama)
-          if (_selectedIndex == 0)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
-                _StatCard(color: Color(0xFFFFD54F), value: "83%", label: "Kapasitas Parkir"),
-                _StatCard(color: Color(0xFF9575CD), value: "77%", label: "Tingkat Penggunaan"),
-                _StatCard(color: Color(0xFFF48FB1), value: "91", label: "Transaksi Hari Ini"),
-                _StatCard(color: Color(0xFFCE93D8), value: "126", label: "Total Motor"),
-              ],
-            ),
-
-          const SizedBox(height: 32),
-
-          // LIST AKTIVITAS
-          const Text(
-            "Aktivitas Terbaru",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: ListView(
-              children: const [
-                _ActivityItem(
-                  title: "Motor B 1234 ABC Masuk",
-                  subtitle: "Jam 08:20 WIB - Difvo Erza",
-                  color: Colors.green,
-                ),
-                _ActivityItem(
-                  title: "Pembayaran Selesai",
-                  subtitle: "Rp 10.000 - Dita Titania",
-                  color: Colors.blue,
-                ),
-                _ActivityItem(
-                  title: "Motor B 7777 ZZ Keluar",
-                  subtitle: "Jam 09:15 WIB - Alfina Berlian",
-                  color: Colors.red,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      child: content,
     );
   }
 
@@ -232,20 +192,42 @@ class _DashboardAdminState extends State<DashboardAdmin> {
   }
 }
 
-// daftar ikon untuk setiap menu
-final List<IconData> _menuIcons = [
-  Icons.dashboard,
-  Icons.people,
-  Icons.motorcycle,
-  Icons.payment,
-  Icons.history,
-  Icons.local_parking,
-  Icons.settings,
-];
+// ==============================
+// DASHBOARD HOME DEFAULT
+// ==============================
+class DashboardHome extends StatelessWidget {
+  const DashboardHome({super.key});
 
-// ======================================================
-// Widget: Statistik Card
-// ======================================================
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: const CustomAppBar(title: "Dashboard Admin"),
+      backgroundColor: Colors.grey[100],
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Selamat datang kembali, Admin!",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: const [
+                _StatCard(color: Color(0xFFFFD54F), value: "83%", label: "Kapasitas Parkir"),
+                _StatCard(color: Color(0xFF9575CD), value: "77%", label: "Tingkat Penggunaan"),
+                _StatCard(color: Color(0xFFF48FB1), value: "91", label: "Transaksi Hari Ini"),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _StatCard extends StatelessWidget {
   final Color color;
   final String value;
@@ -289,35 +271,6 @@ class _StatCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// ======================================================
-// Widget: Aktivitas Terbaru
-// ======================================================
-class _ActivityItem extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final Color color;
-
-  const _ActivityItem({
-    required this.title,
-    required this.subtitle,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        leading: CircleAvatar(backgroundColor: color, radius: 8),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
       ),
     );
   }
