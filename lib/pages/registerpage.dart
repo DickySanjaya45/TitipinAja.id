@@ -1,54 +1,57 @@
 import 'package:flutter/material.dart';
 
-class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+class RegisterPage extends StatefulWidget {
+  const RegisterPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  State<RegisterPage> createState() => _RegisterPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _RegisterPageState extends State<RegisterPage> {
   final _formKey = GlobalKey<FormState>();
+  String nama = '';
   String username = '';
   String password = '';
+  String confirmPassword = '';
   bool isLoading = false;
   bool isPasswordVisible = false;
+  bool isConfirmPasswordVisible = false;
 
   final List<Map<String, String>> dummyUsers = [
     {'username': 'admin', 'password': '12345', 'nama': 'Admin Utama'},
     {'username': 'erza', 'password': 'abcd', 'nama': 'Difvo Erza'},
-    {'username': 'user', 'password': 'user123', 'nama': 'Pengguna Biasa'},
   ];
 
-  Future<void> login() async {
+  Future<void> register() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (password != confirmPassword) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password dan konfirmasi tidak cocok')),
+      );
+      return;
+    }
+
+    final existingUser = dummyUsers.any((u) => u['username'] == username);
+    if (existingUser) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Username sudah digunakan')),
+      );
+      return;
+    }
 
     setState(() => isLoading = true);
     await Future.delayed(const Duration(seconds: 1));
 
-    final user = dummyUsers.firstWhere(
-      (u) => u['username'] == username && u['password'] == password,
-      orElse: () => {},
-    );
+    dummyUsers.add({'nama': nama, 'username': username, 'password': password});
 
     setState(() => isLoading = false);
 
-    if (user.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Selamat datang, ${user['nama']}!')),
-      );
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Registrasi berhasil, selamat datang $nama!')),
+    );
 
-      // arahkan ke dashboard admin kalau username = admin
-      if (username == 'admin') {
-        Navigator.pushReplacementNamed(context, '/dashboardAdmin');
-      } else {
-        Navigator.pushReplacementNamed(context, '/home');
-      }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Username atau password salah')),
-      );
-    }
+    Navigator.pushReplacementNamed(context, '/login');
   }
 
   @override
@@ -56,7 +59,7 @@ class _LoginPageState extends State<LoginPage> {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: const Text('Login'),
+        title: const Text('Register'),
         centerTitle: true,
         backgroundColor: Colors.deepPurple,
       ),
@@ -75,16 +78,26 @@ class _LoginPageState extends State<LoginPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.lock, size: 60, color: Colors.deepPurple),
+                    Icon(Icons.person_add, size: 60, color: Colors.deepPurple),
                     const SizedBox(height: 24),
+                    TextFormField(
+                      decoration: const InputDecoration(
+                        labelText: 'Nama Lengkap',
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (v) => nama = v,
+                      validator: (v) =>
+                          v == null || v.isEmpty ? 'Masukkan nama' : null,
+                    ),
+                    const SizedBox(height: 16),
                     TextFormField(
                       decoration: const InputDecoration(
                         labelText: 'Username',
                         border: OutlineInputBorder(),
                       ),
-                      onChanged: (value) => username = value,
-                      validator: (value) =>
-                          value == null || value.isEmpty ? 'Masukkan username' : null,
+                      onChanged: (v) => username = v,
+                      validator: (v) =>
+                          v == null || v.isEmpty ? 'Masukkan username' : null,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -106,9 +119,35 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                       obscureText: !isPasswordVisible,
-                      onChanged: (value) => password = value,
-                      validator: (value) =>
-                          value == null || value.isEmpty ? 'Masukkan password' : null,
+                      onChanged: (v) => password = v,
+                      validator: (v) =>
+                          v == null || v.isEmpty ? 'Masukkan password' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      decoration: InputDecoration(
+                        labelText: 'Konfirmasi Password',
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            isConfirmPasswordVisible
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                            color: Colors.deepPurple,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              isConfirmPasswordVisible =
+                                  !isConfirmPasswordVisible;
+                            });
+                          },
+                        ),
+                      ),
+                      obscureText: !isConfirmPasswordVisible,
+                      onChanged: (v) => confirmPassword = v,
+                      validator: (v) => v == null || v.isEmpty
+                          ? 'Masukkan konfirmasi password'
+                          : null,
                     ),
                     const SizedBox(height: 24),
                     SizedBox(
@@ -122,19 +161,19 @@ class _LoginPageState extends State<LoginPage> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        onPressed: isLoading ? null : login,
+                        onPressed: isLoading ? null : register,
                         child: isLoading
                             ? const CircularProgressIndicator(color: Colors.white)
-                            : const Text('Login'),
+                            : const Text('Daftar'),
                       ),
                     ),
                     const SizedBox(height: 16),
                     TextButton(
                       onPressed: () {
-                        Navigator.pushReplacementNamed(context, '/register');
+                        Navigator.pushReplacementNamed(context, '/login');
                       },
                       child: const Text(
-                        'Belum punya akun? Daftar di sini',
+                        'Sudah punya akun? Login di sini',
                         style: TextStyle(color: Colors.deepPurple),
                       ),
                     ),
