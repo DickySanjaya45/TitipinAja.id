@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dashboard/dashboard_admin.dart';
 import 'dashboard/dashboard_user.dart';
+import 'pages/registerpage.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -152,10 +153,9 @@ class _LoginPageState extends State<LoginPage> {
                   // Tombol Register (opsional)
                   TextButton(
                     onPressed: () {
-                      // Nanti bisa diarahkan ke halaman register
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('Halaman registrasi belum tersedia')),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const RegisterPage()),
                       );
                     },
                     child: const Text(
