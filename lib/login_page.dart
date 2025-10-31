@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../dashboard/dashboard_admin.dart';
-// import '../pages/homepage.dart'; // Kalau nanti mau buat halaman user
+import 'dashboard/dashboard_admin.dart';
+import 'dashboard/dashboard_user.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -12,10 +12,9 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-
   bool _obscurePassword = true;
 
-  // Data dummy untuk login
+  // Data login dummy
   final List<Map<String, String>> users = [
     {"email": "admin@gmail.com", "password": "12345", "role": "admin"},
     {"email": "user@gmail.com", "password": "12345", "role": "user"},
@@ -42,20 +41,16 @@ class _LoginPageState extends State<LoginPage> {
         SnackBar(content: Text('Login berhasil! Selamat datang, ${user['email']}')),
       );
 
-      // Navigasi sesuai role
+      // Navigasi berdasarkan role
       if (user['role'] == 'admin') {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const DashboardAdmin()),
         );
-      } else {
-        // Untuk user bisa diarahkan ke homepage (kalau sudah dibuat)
-        // Navigator.pushReplacement(
-        //   context,
-        //   MaterialPageRoute(builder: (_) => const HomePage()),
-        // );
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Fitur user belum diaktifkan')),
+      } else if (user['role'] == 'user') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const DashboardUser()),
         );
       }
     } else {
@@ -82,7 +77,7 @@ class _LoginPageState extends State<LoginPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.lock, size: 80, color: Colors.deepPurple),
+                  const Icon(Icons.lock_outline, size: 80, color: Colors.deepPurple),
                   const SizedBox(height: 20),
                   const Text(
                     'Login Sistem Penitipan Motor',
@@ -94,6 +89,8 @@ class _LoginPageState extends State<LoginPage> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 30),
+
+                  // Field Email
                   TextField(
                     controller: emailController,
                     decoration: InputDecoration(
@@ -101,10 +98,12 @@ class _LoginPageState extends State<LoginPage> {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      prefixIcon: const Icon(Icons.email),
+                      prefixIcon: const Icon(Icons.email_outlined),
                     ),
                   ),
                   const SizedBox(height: 16),
+
+                  // Field Password
                   TextField(
                     controller: passwordController,
                     obscureText: _obscurePassword,
@@ -113,7 +112,7 @@ class _LoginPageState extends State<LoginPage> {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      prefixIcon: const Icon(Icons.lock),
+                      prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscurePassword
@@ -129,6 +128,8 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   const SizedBox(height: 24),
+
+                  // Tombol Login
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -147,9 +148,15 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   const SizedBox(height: 16),
+
+                  // Tombol Register (opsional)
                   TextButton(
                     onPressed: () {
-                      Navigator.pushNamed(context, '/register');
+                      // Nanti bisa diarahkan ke halaman register
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('Halaman registrasi belum tersedia')),
+                      );
                     },
                     child: const Text(
                       'Belum punya akun? Daftar di sini',
