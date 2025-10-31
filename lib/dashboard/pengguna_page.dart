@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../widgets/custom_appbar.dart';
+import '../widgets/custom_appbar.dart'; // Pastikan widget ini tersedia
 
 class PenggunaPage extends StatefulWidget {
   const PenggunaPage({super.key});
@@ -9,44 +9,90 @@ class PenggunaPage extends StatefulWidget {
 }
 
 class _PenggunaPageState extends State<PenggunaPage> {
-  // Data dummy pengguna
+  // Data dummy pengguna - DISESUAIKAN DENGAN SKEMA ERD
   List<Map<String, dynamic>> daftarPengguna = [
-    {'id': 1, 'nama': 'Alfina Berlian', 'email': 'alfina@gmail.com', 'role': 'Admin'},
-    {'id': 2, 'nama': 'Dicky Sanjaya', 'email': 'dicky@gmail.com', 'role': 'User'},
-    {'id': 3, 'nama': 'Difvo Erza', 'email': 'difvo@gmail.com', 'role': 'User'},
+    {
+      'id_pengguna': 1,
+      'nama_lengkap': 'Alfina Berlian',
+      'alamat': 'Jl. Kenanga No. 12, Jakarta',
+      'no_telepon': '081234567890',
+      'email': 'alfina@gmail.com',
+      'password': 'hashed_password_1', // Field password ditambahkan
+    },
+    {
+      'id_pengguna': 2,
+      'nama_lengkap': 'Dicky Sanjaya',
+      'alamat': 'Jl. Mawar No. 5, Bandung',
+      'no_telepon': '085098765432',
+      'email': 'dicky@gmail.com',
+      'password': 'hashed_password_2',
+    },
+    {
+      'id_pengguna': 3,
+      'nama_lengkap': 'Difvo Erza',
+      'alamat': 'Perumahan Indah Blok C, Surabaya',
+      'no_telepon': '087112233445',
+      'email': 'difvo@gmail.com',
+      'password': 'hashed_password_3',
+    },
   ];
 
-  // Controller form
-  final _namaController = TextEditingController();
+  // Controller form - DISESUAIKAN DENGAN FIELD ERD
+  final _namaLengkapController = TextEditingController();
+  final _alamatController = TextEditingController();
+  final _noTeleponController = TextEditingController();
   final _emailController = TextEditingController();
-  final _roleController = TextEditingController();
-
-  // Tambah pengguna baru
-  void _tambahPengguna() {
-    _namaController.clear();
+  final _passwordController = TextEditingController();
+  
+  // Fungsi untuk mengosongkan controller
+  void _clearControllers() {
+    _namaLengkapController.clear();
+    _alamatController.clear();
+    _noTeleponController.clear();
     _emailController.clear();
-    _roleController.clear();
+    _passwordController.clear();
+  }
+
+  // Tambah pengguna baru - FORM DISESUAIKAN DENGAN FIELD ERD
+  void _tambahPengguna() {
+    _clearControllers();
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Tambah Pengguna'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _namaController,
-              decoration: const InputDecoration(labelText: 'Nama Lengkap'),
-            ),
-            TextField(
-              controller: _emailController,
-              decoration: const InputDecoration(labelText: 'Email'),
-            ),
-            TextField(
-              controller: _roleController,
-              decoration: const InputDecoration(labelText: 'Role (Admin/User)'),
-            ),
-          ],
+        title: const Text('Tambah Pengguna Baru'),
+        content: SingleChildScrollView( // Menggunakan SingleChildScrollView untuk mencegah overflow
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _namaLengkapController,
+                decoration: const InputDecoration(labelText: 'Nama Lengkap'),
+              ),
+              TextField(
+                controller: _alamatController,
+                decoration: const InputDecoration(labelText: 'Alamat'),
+                keyboardType: TextInputType.multiline,
+                maxLines: 3,
+              ),
+              TextField(
+                controller: _noTeleponController,
+                decoration: const InputDecoration(labelText: 'No. Telepon'),
+                keyboardType: TextInputType.phone,
+              ),
+              TextField(
+                controller: _emailController,
+                decoration: const InputDecoration(labelText: 'Email'),
+                keyboardType: TextInputType.emailAddress,
+              ),
+              TextField(
+                controller: _passwordController,
+                decoration: const InputDecoration(labelText: 'Password'),
+                obscureText: true, // Untuk keamanan input password
+              ),
+              // Field 'Role' dihilangkan
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -55,15 +101,19 @@ class _PenggunaPageState extends State<PenggunaPage> {
           ),
           ElevatedButton(
             onPressed: () {
-              if (_namaController.text.isNotEmpty && _emailController.text.isNotEmpty) {
+              // Validasi dasar
+              if (_namaLengkapController.text.isNotEmpty && _emailController.text.isNotEmpty) {
                 setState(() {
                   daftarPengguna.add({
-                    'id': DateTime.now().millisecondsSinceEpoch,
-                    'nama': _namaController.text,
+                    'id_pengguna': DateTime.now().millisecondsSinceEpoch,
+                    'nama_lengkap': _namaLengkapController.text,
+                    'alamat': _alamatController.text,
+                    'no_telepon': _noTeleponController.text,
                     'email': _emailController.text,
-                    'role': _roleController.text.isEmpty ? 'User' : _roleController.text,
+                    'password': _passwordController.text,
                   });
                 });
+                _clearControllers();
               }
               Navigator.pop(context);
             },
@@ -74,33 +124,51 @@ class _PenggunaPageState extends State<PenggunaPage> {
     );
   }
 
-  // Edit pengguna
+  // Edit pengguna - FORM DISESUAIKAN DENGAN FIELD ERD
   void _editPengguna(int index) {
     final pengguna = daftarPengguna[index];
-    _namaController.text = pengguna['nama'];
+    // Memuat data yang ada ke controller
+    _namaLengkapController.text = pengguna['nama_lengkap'];
+    _alamatController.text = pengguna['alamat'];
+    _noTeleponController.text = pengguna['no_telepon'];
     _emailController.text = pengguna['email'];
-    _roleController.text = pengguna['role'];
+    _passwordController.text = pengguna['password'];
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Edit Pengguna'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _namaController,
-              decoration: const InputDecoration(labelText: 'Nama Lengkap'),
-            ),
-            TextField(
-              controller: _emailController,
-              decoration: const InputDecoration(labelText: 'Email'),
-            ),
-            TextField(
-              controller: _roleController,
-              decoration: const InputDecoration(labelText: 'Role (Admin/User)'),
-            ),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _namaLengkapController,
+                decoration: const InputDecoration(labelText: 'Nama Lengkap'),
+              ),
+              TextField(
+                controller: _alamatController,
+                decoration: const InputDecoration(labelText: 'Alamat'),
+                keyboardType: TextInputType.multiline,
+                maxLines: 3,
+              ),
+              TextField(
+                controller: _noTeleponController,
+                decoration: const InputDecoration(labelText: 'No. Telepon'),
+                keyboardType: TextInputType.phone,
+              ),
+              TextField(
+                controller: _emailController,
+                decoration: const InputDecoration(labelText: 'Email'),
+                keyboardType: TextInputType.emailAddress,
+              ),
+              TextField(
+                controller: _passwordController,
+                decoration: const InputDecoration(labelText: 'Password'),
+                obscureText: true,
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -111,12 +179,15 @@ class _PenggunaPageState extends State<PenggunaPage> {
             onPressed: () {
               setState(() {
                 daftarPengguna[index] = {
-                  'id': pengguna['id'],
-                  'nama': _namaController.text,
+                  'id_pengguna': pengguna['id_pengguna'],
+                  'nama_lengkap': _namaLengkapController.text,
+                  'alamat': _alamatController.text,
+                  'no_telepon': _noTeleponController.text,
                   'email': _emailController.text,
-                  'role': _roleController.text,
+                  'password': _passwordController.text,
                 };
               });
+              _clearControllers();
               Navigator.pop(context);
             },
             child: const Text('Update'),
@@ -126,14 +197,14 @@ class _PenggunaPageState extends State<PenggunaPage> {
     );
   }
 
-  // Hapus pengguna
+  // Hapus pengguna - DISESUAIKAN DENGAN nama_lengkap
   void _hapusPengguna(int index) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Hapus Pengguna'),
         content: Text(
-          'Yakin ingin menghapus pengguna "${daftarPengguna[index]['nama']}"?',
+          'Yakin ingin menghapus pengguna "${daftarPengguna[index]['nama_lengkap']}"?',
         ),
         actions: [
           TextButton(
@@ -154,19 +225,24 @@ class _PenggunaPageState extends State<PenggunaPage> {
     );
   }
 
-  // Detail pengguna (opsional)
+  // Detail pengguna (opsional) - DISESUAIKAN UNTUK MENAMPILKAN SEMUA FIELD KECUALI PASSWORD
   void _lihatDetail(Map<String, dynamic> pengguna) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(pengguna['nama']),
+        title: Text(pengguna['nama_lengkap']),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text('ID Pengguna: ${pengguna['id_pengguna']}'),
+            const SizedBox(height: 5),
             Text('Email: ${pengguna['email']}'),
             const SizedBox(height: 5),
-            Text('Role: ${pengguna['role']}'),
+            Text('No. Telepon: ${pengguna['no_telepon']}'),
+            const SizedBox(height: 5),
+            Text('Alamat: ${pengguna['alamat']}'),
+            const SizedBox(height: 5),
           ],
         ),
         actions: [
@@ -192,8 +268,9 @@ class _PenggunaPageState extends State<PenggunaPage> {
                 return Card(
                   margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   child: ListTile(
-                    title: Text(pengguna['nama']),
-                    subtitle: Text('${pengguna['email']} • ${pengguna['role']}'),
+                    // Tampilan utama menggunakan nama_lengkap, email, dan no_telepon
+                    title: Text(pengguna['nama_lengkap']),
+                    subtitle: Text('${pengguna['email']} | Telp: ${pengguna['no_telepon']}'),
                     onTap: () => _lihatDetail(pengguna),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
