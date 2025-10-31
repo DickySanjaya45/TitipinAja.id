@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../dashboard/dashboard_admin.dart';
+// import '../pages/homepage.dart'; // Kalau nanti mau buat halaman user
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -39,7 +41,23 @@ class _LoginPageState extends State<LoginPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Login berhasil! Selamat datang, ${user['email']}')),
       );
-      // Tidak navigasi ke halaman lain
+
+      // Navigasi sesuai role
+      if (user['role'] == 'admin') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const DashboardAdmin()),
+        );
+      } else {
+        // Untuk user bisa diarahkan ke homepage (kalau sudah dibuat)
+        // Navigator.pushReplacement(
+        //   context,
+        //   MaterialPageRoute(builder: (_) => const HomePage()),
+        // );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Fitur user belum diaktifkan')),
+        );
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Email atau password salah!')),
