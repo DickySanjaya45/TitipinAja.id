@@ -8,45 +8,41 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final _formKey = GlobalKey<FormState>();
-  String username = '';
-  String password = '';
-  bool isLoading = false;
-  bool isPasswordVisible = false;
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
 
-  final List<Map<String, String>> dummyUsers = [
-    {'username': 'admin', 'password': '12345', 'nama': 'Admin Utama'},
-    {'username': 'erza', 'password': 'abcd', 'nama': 'Difvo Erza'},
-    {'username': 'user', 'password': 'user123', 'nama': 'Pengguna Biasa'},
+  bool _obscurePassword = true;
+
+  // Data dummy untuk login
+  final List<Map<String, String>> users = [
+    {"email": "admin@gmail.com", "password": "12345", "role": "admin"},
+    {"email": "user@gmail.com", "password": "12345", "role": "user"},
   ];
 
-  Future<void> login() async {
-    if (!_formKey.currentState!.validate()) return;
+  void _login() {
+    String email = emailController.text.trim();
+    String password = passwordController.text.trim();
 
-    setState(() => isLoading = true);
-    await Future.delayed(const Duration(seconds: 1));
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Isi email dan password terlebih dahulu')),
+      );
+      return;
+    }
 
-    final user = dummyUsers.firstWhere(
-      (u) => u['username'] == username && u['password'] == password,
+    final user = users.firstWhere(
+      (u) => u['email'] == email && u['password'] == password,
       orElse: () => {},
     );
 
-    setState(() => isLoading = false);
-
     if (user.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Selamat datang, ${user['nama']}!')),
+        SnackBar(content: Text('Login berhasil! Selamat datang, ${user['email']}')),
       );
-
-      // arahkan ke dashboard admin kalau username = admin
-      if (username == 'admin') {
-        Navigator.pushReplacementNamed(context, '/dashboardAdmin');
-      } else {
-        Navigator.pushReplacementNamed(context, '/home');
-      }
+      // Tidak navigasi ke halaman lain
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Username atau password salah')),
+        const SnackBar(content: Text('Email atau password salah!')),
       );
     }
   }
@@ -54,92 +50,95 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: const Text('Login'),
-        centerTitle: true,
-        backgroundColor: Colors.deepPurple,
-      ),
+      backgroundColor: Colors.deepPurple[50],
       body: Center(
         child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
           child: Card(
-            elevation: 8,
-            margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            elevation: 6,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: Padding(
-              padding: const EdgeInsets.all(32.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.lock, size: 60, color: Colors.deepPurple),
-                    const SizedBox(height: 24),
-                    TextFormField(
-                      decoration: const InputDecoration(
-                        labelText: 'Username',
-                        border: OutlineInputBorder(),
-                      ),
-                      onChanged: (value) => username = value,
-                      validator: (value) =>
-                          value == null || value.isEmpty ? 'Masukkan username' : null,
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.lock, size: 80, color: Colors.deepPurple),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Login Sistem Penitipan Motor',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.deepPurple,
                     ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        border: const OutlineInputBorder(),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            isPasswordVisible
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                            color: Colors.deepPurple,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              isPasswordVisible = !isPasswordVisible;
-                            });
-                          },
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 30),
+                  TextField(
+                    controller: emailController,
+                    decoration: InputDecoration(
+                      labelText: 'Email',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      prefixIcon: const Icon(Icons.email),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: passwordController,
+                    obscureText: _obscurePassword,
+                    decoration: InputDecoration(
+                      labelText: 'Password',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      prefixIcon: const Icon(Icons.lock),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility
+                              : Icons.visibility_off,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.deepPurple,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      obscureText: !isPasswordVisible,
-                      onChanged: (value) => password = value,
-                      validator: (value) =>
-                          value == null || value.isEmpty ? 'Masukkan password' : null,
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.deepPurple,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        onPressed: isLoading ? null : login,
-                        child: isLoading
-                            ? const CircularProgressIndicator(color: Colors.white)
-                            : const Text('Login'),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pushReplacementNamed(context, '/register');
-                      },
+                      onPressed: _login,
                       child: const Text(
-                        'Belum punya akun? Daftar di sini',
-                        style: TextStyle(color: Colors.deepPurple),
+                        'LOGIN',
+                        style: TextStyle(fontSize: 16, color: Colors.white),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/register');
+                    },
+                    child: const Text(
+                      'Belum punya akun? Daftar di sini',
+                      style: TextStyle(color: Colors.deepPurple),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 class DashboardTile extends StatelessWidget {
   final IconData icon;
   final String title;
+  final VoidCallback? onTap;
 
   const DashboardTile({
     super.key,
     required this.icon,
     required this.title,
+    this.onTap,
   });
 
   @override
@@ -17,11 +19,7 @@ class DashboardTile extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Kamu memilih $title')),
-          );
-        },
+        onTap: onTap,
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,

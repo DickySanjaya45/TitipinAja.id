@@ -9,17 +9,27 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage> {
   final _formKey = GlobalKey<FormState>();
-  String nama = '';
-  String username = '';
+
+  String namaLengkap = '';
+  String alamat = '';
+  String noTelepon = '';
+  String email = '';
   String password = '';
   String confirmPassword = '';
-  bool isLoading = false;
+
   bool isPasswordVisible = false;
   bool isConfirmPasswordVisible = false;
+  bool isLoading = false;
 
+  // Simulasi database sementara
   final List<Map<String, String>> dummyUsers = [
-    {'username': 'admin', 'password': '12345', 'nama': 'Admin Utama'},
-    {'username': 'erza', 'password': 'abcd', 'nama': 'Difvo Erza'},
+    {
+      'email': 'admin@gmail.com',
+      'password': '12345',
+      'nama_lengkap': 'Admin Utama',
+      'no_telepon': '08123456789',
+      'alamat': 'Jl. Bunga No.1'
+    },
   ];
 
   Future<void> register() async {
@@ -32,10 +42,10 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
 
-    final existingUser = dummyUsers.any((u) => u['username'] == username);
+    final existingUser = dummyUsers.any((u) => u['email'] == email);
     if (existingUser) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Username sudah digunakan')),
+        const SnackBar(content: Text('Email sudah digunakan')),
       );
       return;
     }
@@ -43,12 +53,18 @@ class _RegisterPageState extends State<RegisterPage> {
     setState(() => isLoading = true);
     await Future.delayed(const Duration(seconds: 1));
 
-    dummyUsers.add({'nama': nama, 'username': username, 'password': password});
+    dummyUsers.add({
+      'nama_lengkap': namaLengkap,
+      'alamat': alamat,
+      'no_telepon': noTelepon,
+      'email': email,
+      'password': password,
+    });
 
     setState(() => isLoading = false);
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Registrasi berhasil, selamat datang $nama!')),
+      SnackBar(content: Text('Registrasi berhasil, selamat datang $namaLengkap!')),
     );
 
     Navigator.pushReplacementNamed(context, '/login');
@@ -59,7 +75,7 @@ class _RegisterPageState extends State<RegisterPage> {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: const Text('Register'),
+        title: const Text('Registrasi Pengguna'),
         centerTitle: true,
         backgroundColor: Colors.deepPurple,
       ),
@@ -69,10 +85,10 @@ class _RegisterPageState extends State<RegisterPage> {
             elevation: 8,
             margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(20),
             ),
             child: Padding(
-              padding: const EdgeInsets.all(32.0),
+              padding: const EdgeInsets.all(28.0),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -80,26 +96,65 @@ class _RegisterPageState extends State<RegisterPage> {
                   children: [
                     Icon(Icons.person_add, size: 60, color: Colors.deepPurple),
                     const SizedBox(height: 24),
+
+                    // Nama Lengkap
                     TextFormField(
                       decoration: const InputDecoration(
                         labelText: 'Nama Lengkap',
                         border: OutlineInputBorder(),
                       ),
-                      onChanged: (v) => nama = v,
+                      onChanged: (v) => namaLengkap = v,
                       validator: (v) =>
-                          v == null || v.isEmpty ? 'Masukkan nama' : null,
+                          v == null || v.isEmpty ? 'Masukkan nama lengkap' : null,
                     ),
                     const SizedBox(height: 16),
+
+                    // Alamat
                     TextFormField(
                       decoration: const InputDecoration(
-                        labelText: 'Username',
+                        labelText: 'Alamat',
                         border: OutlineInputBorder(),
                       ),
-                      onChanged: (v) => username = v,
+                      maxLines: 2,
+                      onChanged: (v) => alamat = v,
                       validator: (v) =>
-                          v == null || v.isEmpty ? 'Masukkan username' : null,
+                          v == null || v.isEmpty ? 'Masukkan alamat' : null,
                     ),
                     const SizedBox(height: 16),
+
+                    // No Telepon
+                    TextFormField(
+                      decoration: const InputDecoration(
+                        labelText: 'No Telepon',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.phone,
+                      onChanged: (v) => noTelepon = v,
+                      validator: (v) =>
+                          v == null || v.isEmpty ? 'Masukkan nomor telepon' : null,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Email
+                    TextFormField(
+                      decoration: const InputDecoration(
+                        labelText: 'Email',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.emailAddress,
+                      onChanged: (v) => email = v,
+                      validator: (v) {
+                        if (v == null || v.isEmpty) {
+                          return 'Masukkan email';
+                        } else if (!v.contains('@')) {
+                          return 'Email tidak valid';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Password
                     TextFormField(
                       decoration: InputDecoration(
                         labelText: 'Password',
@@ -124,6 +179,8 @@ class _RegisterPageState extends State<RegisterPage> {
                           v == null || v.isEmpty ? 'Masukkan password' : null,
                     ),
                     const SizedBox(height: 16),
+
+                    // Konfirmasi Password
                     TextFormField(
                       decoration: InputDecoration(
                         labelText: 'Konfirmasi Password',
@@ -149,6 +206,7 @@ class _RegisterPageState extends State<RegisterPage> {
                           ? 'Masukkan konfirmasi password'
                           : null,
                     ),
+
                     const SizedBox(height: 24),
                     SizedBox(
                       width: double.infinity,
@@ -163,10 +221,13 @@ class _RegisterPageState extends State<RegisterPage> {
                         ),
                         onPressed: isLoading ? null : register,
                         child: isLoading
-                            ? const CircularProgressIndicator(color: Colors.white)
+                            ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
                             : const Text('Daftar'),
                       ),
                     ),
+
                     const SizedBox(height: 16),
                     TextButton(
                       onPressed: () {
