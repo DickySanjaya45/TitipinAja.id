@@ -6,7 +6,7 @@ class ApiService {
   // Untuk Android Emulator: http://10.0.2.2:8000/api
   // Untuk Physical Device: http://IP_KOMPUTER_KAMU:8000/api
   // Untuk Web (Chrome): http://127.0.0.1:8000/api
-  static const String baseUrl = 'http://127.0.0.1:8000/api';
+  static const String baseUrl = 'https://titipinajaid-backend.up.railway.app/api';
 
   // Login API
   static Future<Map<String, dynamic>> login(String email, String password) async {
