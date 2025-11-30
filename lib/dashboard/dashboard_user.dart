@@ -174,13 +174,9 @@ class _DashboardContentState extends State<_DashboardContent> {
 
   Future<List<dynamic>> _fetchActivities() async {
     try {
-      // Memanggil fungsi API baru yang akan kita buat
-      final result = await ApiService.getActivities(widget.token);
-      if (result['success'] == true && result['data'] is List) {
-        return result['data'];
-      } else {
-        throw Exception(result['message'] ?? 'Gagal memuat data aktivitas');
-      }
+      // Memanggil fungsi API yang mengembalikan List langsung
+      final activities = await ApiService.getActivities(widget.token);
+      return activities;
     } catch (e) {
       // Menangani error jika terjadi
       throw Exception('Error: $e');
@@ -428,12 +424,11 @@ class _ProfilePageWidgetState extends State<_ProfilePageWidget> {
           _teleponController.text = updatedData['no_telepon'];
           _alamatController.text = updatedData['alamat'];
         });
-
-  } else {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text(result['message'] ?? 'Gagal update')));
-  }
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(result['message'] ?? 'Gagal update')));
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
