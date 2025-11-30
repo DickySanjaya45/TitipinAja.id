@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'dashboard/dashboard_admin.dart';
 import 'dashboard/dashboard_user.dart';
 import 'pages/registerpage.dart';
-import 'services/api_service.dart'; // Import API Service
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -14,8 +12,16 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  
   bool _obscurePassword = true;
-  bool _isLoading = false; // Tambahkan loading state
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
 
   void _login() async {
     String email = emailController.text.trim();
@@ -23,7 +29,10 @@ class _LoginPageState extends State<LoginPage> {
 
     if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Isi email dan password terlebih dahulu')),
+        const SnackBar(
+          content: Text('Isi email dan password terlebih dahulu'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
       return;
     }
@@ -32,33 +41,47 @@ class _LoginPageState extends State<LoginPage> {
       _isLoading = true;
     });
 
-    await Future.delayed(const Duration(milliseconds: 500)); // Simulasi loading
+    await Future.delayed(const Duration(milliseconds: 500));
 
     setState(() {
       _isLoading = false;
     });
 
+    // Cek kredensial
     if (email == 'admin@gmail.com' && password == '12345') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Login Admin berhasil!')),
-      );
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const DashboardAdmin()),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Login Admin berhasil!'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        Navigator.pushReplacementNamed(context, '/dashboard_admin');
+      }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Login User berhasil!')),
-      );
-      // Data user dummy, bisa dikembangkan jika perlu
-      final userData = {
-        'email': email,
-        'username': email.split('@').first,
-      };
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => DashboardUser(userData: userData, token: 'dummy_token')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Login User berhasil!'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        
+        final userData = {
+          'email': email,
+          'username': email.split('@').first,
+        };
+        
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DashboardUser(
+              userData: userData,
+              token: 'dummy_token',
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -79,7 +102,11 @@ class _LoginPageState extends State<LoginPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.lock_outline, size: 80, color: Colors.deepPurple),
+                  const Icon(
+                    Icons.lock_outline,
+                    size: 80,
+                    color: Colors.deepPurple,
+                  ),
                   const SizedBox(height: 20),
                   const Text(
                     'Login Sistem Penitipan Motor',
@@ -154,7 +181,10 @@ class _LoginPageState extends State<LoginPage> {
                             )
                           : const Text(
                               'LOGIN',
-                              style: TextStyle(fontSize: 16, color: Colors.white),
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.white,
+                              ),
                             ),
                     ),
                   ),
@@ -165,7 +195,9 @@ class _LoginPageState extends State<LoginPage> {
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const RegisterPage()),
+                        MaterialPageRoute(
+                          builder: (_) => const RegisterPage(),
+                        ),
                       );
                     },
                     child: const Text(

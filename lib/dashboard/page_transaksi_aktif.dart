@@ -22,6 +22,12 @@ class PageTransaksiAktif extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F6FF),
+      appBar: AppBar(
+        title: const Text("Transaksi Aktif"),
+        backgroundColor: const Color(0xFF5B2B9C),
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -38,10 +44,9 @@ class PageTransaksiAktif extends StatelessWidget {
             const SizedBox(height: 12),
             const Text(
               "Berikut adalah transaksi parkir motor yang sedang berlangsung.",
-              style: TextStyle(color: Colors.grey),
+              style: TextStyle(color: Colors.grey, fontSize: 15),
             ),
             const SizedBox(height: 20),
-
             Expanded(
               child: transaksiAktif.isEmpty
                   ? const Center(
@@ -106,17 +111,13 @@ class PageTransaksiAktif extends StatelessWidget {
                                     vertical: 6,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: data['status'] == 'Aktif'
-                                        ? Colors.green[100]
-                                        : Colors.grey[200],
+                                    color: Colors.green[100],
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: Text(
                                     data['status']!,
-                                    style: TextStyle(
-                                      color: data['status'] == 'Aktif'
-                                          ? Colors.green[700]
-                                          : Colors.grey,
+                                    style: const TextStyle(
+                                      color: Colors.green,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
