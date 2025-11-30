@@ -32,32 +32,63 @@ class _LoginPageState extends State<LoginPage> {
       _isLoading = true;
     });
 
-    await Future.delayed(const Duration(milliseconds: 500)); // Simulasi loading
+    try {
+      final result = await ApiService.login(email, password);
 
-    setState(() {
-      _isLoading = false;
-    });
+      setState(() {
+        _isLoading = false;
+      });
 
-    if (email == 'admin@gmail.com' && password == '12345') {
+      if (!mounted) return;
+
+      if (result['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Login berhasil! Selamat datang')),
+        );
+
+        // Ambil data pengguna dan token dari response
+        Map<String, dynamic> userData = {};
+        if (result['data'] is Map) {
+          userData = Map<String, dynamic>.from(result['data']);
+        }
+
+        // Token bisa berada di root response atau di dalam data, per berbagai API
+        final String token = (result['token'] as String?) ?? (userData['token'] as String?) ?? '';
+
+        // Normalisasi 'id' jika backend mengembalikan sebagai string
+        if (userData.containsKey('id')) {
+          final idVal = userData['id'];
+          if (idVal is String) {
+            final parsed = int.tryParse(idVal);
+            if (parsed != null) userData['id'] = parsed;
+          }
+        }
+
+        // Jika API menyediakan role, arahkan ke dashboard yang sesuai
+        final role = (userData['role'] as String?) ?? (result['role'] as String?) ?? '';
+
+        if (role.toLowerCase() == 'admin') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const DashboardAdmin()),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => DashboardUser(userData: userData, token: token)),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Login gagal')),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Login Admin berhasil!')),
-      );
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const DashboardAdmin()),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Login User berhasil!')),
-      );
-      // Data user dummy, bisa dikembangkan jika perlu
-      final userData = {
-        'email': email,
-        'username': email.split('@').first,
-      };
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => DashboardUser(userData: userData, token: 'dummy_token')),
+        SnackBar(content: Text('Error: $e')),
       );
     }
   }
