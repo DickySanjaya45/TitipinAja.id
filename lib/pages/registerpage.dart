@@ -1,5 +1,6 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../services/api_service.dart'; // pastikan path-nya sesuai
+import '../services/api_service.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -26,217 +27,159 @@ class _RegisterPageState extends State<RegisterPage> {
     if (!_formKey.currentState!.validate()) return;
 
     if (password != confirmPassword) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password dan konfirmasi tidak cocok')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password tidak cocok')));
       return;
     }
 
     setState(() => isLoading = true);
-
-    // 🔥 Panggil API Laravel lewat ApiService
-    final response = await ApiService.register(
+    await ApiService.register(
       namaLengkap: namaLengkap,
       alamat: alamat,
       noTelepon: noTelepon,
       email: email,
       password: password,
     );
-
     setState(() => isLoading = false);
 
-    if (response['success'] == true) {
-      // ✅ Jika berhasil
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(response['message'] ?? 'Registrasi berhasil')),
-      );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Registrasi Berhasil')));
       Navigator.pushReplacementNamed(context, '/login');
-    } else {
-      // ❌ Jika gagal
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(response['message'] ?? 'Registrasi gagal'),
-          backgroundColor: Colors.red,
-        ),
-      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: const Text('Registrasi Pengguna'),
-        centerTitle: true,
-        backgroundColor: Colors.deepPurple,
-      ),
-      body: Center(
-        child: SingleChildScrollView(
-          child: Card(
-            elevation: 8,
-            margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(28.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.person_add, size: 60, color: Colors.deepPurple),
-                    const SizedBox(height: 24),
-
-                    // Nama Lengkap
-                    TextFormField(
-                      decoration: const InputDecoration(
-                        labelText: 'Nama Lengkap',
-                        border: OutlineInputBorder(),
-                      ),
-                      onChanged: (v) => namaLengkap = v,
-                      validator: (v) =>
-                          v == null || v.isEmpty ? 'Masukkan nama lengkap' : null,
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Alamat
-                    TextFormField(
-                      decoration: const InputDecoration(
-                        labelText: 'Alamat',
-                        border: OutlineInputBorder(),
-                      ),
-                      maxLines: 2,
-                      onChanged: (v) => alamat = v,
-                      validator: (v) =>
-                          v == null || v.isEmpty ? 'Masukkan alamat' : null,
-                    ),
-                    const SizedBox(height: 16),
-
-                    // No Telepon
-                    TextFormField(
-                      decoration: const InputDecoration(
-                        labelText: 'No Telepon',
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.phone,
-                      onChanged: (v) => noTelepon = v,
-                      validator: (v) =>
-                          v == null || v.isEmpty ? 'Masukkan nomor telepon' : null,
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Email
-                    TextFormField(
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                      onChanged: (v) => email = v,
-                      validator: (v) {
-                        if (v == null || v.isEmpty) {
-                          return 'Masukkan email';
-                        } else if (!v.contains('@')) {
-                          return 'Email tidak valid';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Password
-                    TextFormField(
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        border: const OutlineInputBorder(),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            isPasswordVisible
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                            color: Colors.deepPurple,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              isPasswordVisible = !isPasswordVisible;
-                            });
-                          },
+      backgroundColor: Colors.white, // Fallback background
+      body: Stack(
+        children: [
+          // Background Blobs Decoration
+          Positioned(top: -50, right: -50, child: _buildBlurCircle(200, primaryColor.withOpacity(0.3))),
+          Positioned(bottom: 100, left: -50, child: _buildBlurCircle(250, Colors.tealAccent.withOpacity(0.2))),
+          
+          Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(30),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(color: Colors.white.withOpacity(0.5)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.1),
+                          blurRadius: 20,
+                          spreadRadius: 5,
                         ),
-                      ),
-                      obscureText: !isPasswordVisible,
-                      onChanged: (v) => password = v,
-                      validator: (v) =>
-                          v == null || v.isEmpty ? 'Masukkan password' : null,
+                      ],
                     ),
-                    const SizedBox(height: 16),
-
-                    // Konfirmasi Password
-                    TextFormField(
-                      decoration: InputDecoration(
-                        labelText: 'Konfirmasi Password',
-                        border: const OutlineInputBorder(),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            isConfirmPasswordVisible
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                            color: Colors.deepPurple,
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.person_add_rounded, size: 50, color: primaryColor),
+                          const SizedBox(height: 10),
+                          Text(
+                            "Buat Akun Baru",
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey.shade800,
+                            ),
                           ),
-                          onPressed: () {
-                            setState(() {
-                              isConfirmPasswordVisible =
-                                  !isConfirmPasswordVisible;
-                            });
-                          },
-                        ),
-                      ),
-                      obscureText: !isConfirmPasswordVisible,
-                      onChanged: (v) => confirmPassword = v,
-                      validator: (v) => v == null || v.isEmpty
-                          ? 'Masukkan konfirmasi password'
-                          : null,
-                    ),
+                          const SizedBox(height: 30),
 
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.deepPurple,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                          _buildInput("Nama Lengkap", Icons.person_outline, (v) => namaLengkap = v),
+                          const SizedBox(height: 16),
+                          _buildInput("Email", Icons.email_outlined, (v) => email = v, isEmail: true),
+                          const SizedBox(height: 16),
+                          _buildInput("No Telepon", Icons.phone_outlined, (v) => noTelepon = v, isNumber: true),
+                          const SizedBox(height: 16),
+                          _buildInput("Alamat", Icons.home_outlined, (v) => alamat = v),
+                          const SizedBox(height: 16),
+                          
+                          // Password
+                          TextFormField(
+                            obscureText: !isPasswordVisible,
+                            decoration: InputDecoration(
+                              labelText: 'Password',
+                              prefixIcon: const Icon(Icons.lock_outline),
+                              suffixIcon: IconButton(
+                                icon: Icon(isPasswordVisible ? Icons.visibility : Icons.visibility_off),
+                                onPressed: () => setState(() => isPasswordVisible = !isPasswordVisible),
+                              ),
+                            ),
+                            onChanged: (v) => password = v,
+                            validator: (v) => v!.isEmpty ? 'Wajib diisi' : null,
                           ),
-                        ),
-                        onPressed: isLoading ? null : register,
-                        child: isLoading
-                            ? const CircularProgressIndicator(
-                                color: Colors.white,
-                              )
-                            : const Text('Daftar'),
-                      ),
-                    ),
+                          const SizedBox(height: 16),
 
-                    const SizedBox(height: 16),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pushReplacementNamed(context, '/login');
-                      },
-                      child: const Text(
-                        'Sudah punya akun? Login di sini',
-                        style: TextStyle(color: Colors.deepPurple),
+                          // Confirm Password
+                          TextFormField(
+                            obscureText: !isConfirmPasswordVisible,
+                            decoration: InputDecoration(
+                              labelText: 'Konfirmasi Password',
+                              prefixIcon: const Icon(Icons.lock_clock_outlined),
+                              suffixIcon: IconButton(
+                                icon: Icon(isConfirmPasswordVisible ? Icons.visibility : Icons.visibility_off),
+                                onPressed: () => setState(() => isConfirmPasswordVisible = !isConfirmPasswordVisible),
+                              ),
+                            ),
+                            onChanged: (v) => confirmPassword = v,
+                            validator: (v) => v!.isEmpty ? 'Wajib diisi' : null,
+                          ),
+
+                          const SizedBox(height: 30),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: isLoading ? null : register,
+                              child: isLoading 
+                                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white))
+                                : const Text("DAFTAR"),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          TextButton(
+                            onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
+                            child: Text("Sudah punya akun? Login", style: TextStyle(fontWeight: FontWeight.bold, color: primaryColor)),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildInput(String label, IconData icon, Function(String) onChanged, {bool isEmail = false, bool isNumber = false}) {
+    return TextFormField(
+      keyboardType: isEmail ? TextInputType.emailAddress : (isNumber ? TextInputType.phone : TextInputType.text),
+      decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon)),
+      onChanged: onChanged,
+      validator: (v) => v == null || v.isEmpty ? '$label wajib diisi' : null,
+    );
+  }
+
+  Widget _buildBlurCircle(double size, Color color) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 60, sigmaY: 60), child: Container(color: Colors.transparent)),
     );
   }
 }

@@ -8,257 +8,117 @@ class PageTransaksiAktif extends StatefulWidget {
 }
 
 class _PageTransaksiAktifState extends State<PageTransaksiAktif> {
-  List<Map<String, String>> transaksi = [
-    {
-      "motor": "Honda Vario",
-      "slot": "A12",
-      "jam_masuk": "09:00",
-      "status": "Aktif",
-    },
-    {
-      "motor": "Yamaha NMAX",
-      "slot": "B07",
-      "jam_masuk": "10:15",
-      "status": "Aktif",
-    },
+  // Data dummy
+  List<Map<String, dynamic>> transaksi = [
+    {"motor": "Honda Vario", "slot": "A12", "jam_masuk": "09:00", "status": "Aktif", "biaya": 2000},
+    {"motor": "Yamaha NMAX", "slot": "B07", "jam_masuk": "10:15", "status": "Aktif", "biaya": 4000},
   ];
 
-  final motorController = TextEditingController();
-  final slotController = TextEditingController();
-  final jamController = TextEditingController();
-
-  void _clearForm() {
-    motorController.clear();
-    slotController.clear();
-    jamController.clear();
-  }
-
-  // ---------------------------
-  // FORM TAMBAH & EDIT
-  // ---------------------------
-  void _showForm({bool edit = false, int? index}) {
-    if (edit && index != null) {
-      motorController.text = transaksi[index]["motor"]!;
-      slotController.text = transaksi[index]["slot"]!;
-      jamController.text = transaksi[index]["jam_masuk"]!;
-    } else {
-      _clearForm();
-    }
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        title: Text(
-          edit ? "Edit Transaksi" : "Tambah Transaksi",
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildInput("Nama Motor", motorController),
-            const SizedBox(height: 12),
-            _buildInput("Slot Parkir", slotController),
-            const SizedBox(height: 12),
-            _buildInput("Jam Masuk (ex: 09:00)", jamController),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Batal"),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF5B2B9C)),
-            onPressed: () {
-              if (motorController.text.isEmpty ||
-                  slotController.text.isEmpty ||
-                  jamController.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Semua field harus diisi!")),
-                );
-                return;
-              }
-
-              setState(() {
-                if (edit && index != null) {
-                  transaksi[index] = {
-                    "motor": motorController.text,
-                    "slot": slotController.text,
-                    "jam_masuk": jamController.text,
-                    "status": "Aktif",
-                  };
-                } else {
-                  transaksi.add({
-                    "motor": motorController.text,
-                    "slot": slotController.text,
-                    "jam_masuk": jamController.text,
-                    "status": "Aktif",
-                  });
-                }
-              });
-
-              Navigator.pop(context);
-              _clearForm();
-            },
-            child: Text(edit ? "Simpan" : "Tambah"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ---------------------------
-  // DIALOG HAPUS
-  // ---------------------------
-  void _hapus(int index) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Hapus Transaksi"),
-        content: const Text("Yakin ingin menghapus transaksi ini?"),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Batal")),
-          ElevatedButton(
-            onPressed: () {
-              setState(() => transaksi.removeAt(index));
-              Navigator.pop(context);
-            },
-            style:
-                ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text("Hapus"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ---------------------------
-  // INPUT FIELD BUILDER
-  // ---------------------------
-  Widget _buildInput(String label, TextEditingController controller) {
-    return TextField(
-      controller: controller,
-      decoration: InputDecoration(
-        labelText: label,
-        filled: true,
-        fillColor: Colors.grey.shade100,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-    );
-  }
-
-  // ---------------------------
-  // UI PAGE
-  // ---------------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F6FF),
+      backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         title: const Text("Transaksi Aktif"),
-        backgroundColor: const Color(0xFF5B2B9C),
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        titleTextStyle: const TextStyle(color: Colors.black87, fontSize: 20, fontWeight: FontWeight.bold),
+        iconTheme: const IconThemeData(color: Colors.black87),
       ),
+      body: ListView.builder(
+        padding: const EdgeInsets.all(20),
+        itemCount: transaksi.length,
+        itemBuilder: (context, index) {
+          final data = transaksi[index];
+          return Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.05),
+                  blurRadius: 15,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  // Icon Status
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE0F7FA),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: const Icon(Icons.timer, color: Color(0xFF00ACC1)),
+                  ),
+                  const SizedBox(width: 16),
+                  
+                  // Info Utama
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          data['motor'],
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.local_parking, size: 14, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Text("Slot ${data['slot']}", style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                            const SizedBox(width: 10),
+                            const Icon(Icons.access_time, size: 14, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Text(data['jam_masuk'], style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
 
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF5B2B9C),
-        onPressed: () => _showForm(edit: false),
-        child: const Icon(Icons.add),
-      ),
-
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "Daftar Transaksi Aktif",
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF5B2B9C),
+                  // Status Chip
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Text(
+                          "Aktif",
+                          style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        "Rp ${data['biaya']}",
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  )
+                ],
               ),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              "Berikut adalah transaksi parkir motor yang sedang berlangsung.",
-              style: TextStyle(color: Colors.grey),
-            ),
-            const SizedBox(height: 20),
-
-            Expanded(
-              child: transaksi.isEmpty
-                  ? const Center(
-                      child: Text("Belum ada transaksi aktif.",
-                          style: TextStyle(color: Colors.grey)),
-                    )
-                  : ListView.builder(
-                      itemCount: transaksi.length,
-                      itemBuilder: (context, index) {
-                        final data = transaksi[index];
-
-                        return Card(
-                          elevation: 1,
-                          shadowColor: Colors.grey.shade200,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.all(18),
-                            leading: Container(
-                              height: 48,
-                              width: 48,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF5B2B9C),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(Icons.motorcycle,
-                                  color: Colors.white),
-                            ),
-                            title: Text(
-                              data["motor"]!,
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            subtitle: Text(
-                              "Slot: ${data['slot']}  |  Masuk: ${data['jam_masuk']}",
-                              style: const TextStyle(color: Colors.grey),
-                            ),
-                            trailing: PopupMenuButton(
-                              onSelected: (value) {
-                                if (value == "edit") {
-                                  _showForm(edit: true, index: index);
-                                } else if (value == "hapus") {
-                                  _hapus(index);
-                                }
-                              },
-                              itemBuilder: (context) => [
-                                const PopupMenuItem(
-                                  value: "edit",
-                                  child: Text("Edit"),
-                                ),
-                                const PopupMenuItem(
-                                  value: "hapus",
-                                  child: Text("Hapus"),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {},
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }

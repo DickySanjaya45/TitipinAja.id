@@ -96,7 +96,7 @@ class _PagePembayaranState extends State<PagePembayaran> {
                     "motor": motorController.text,
                     "jumlah": jumlahController.text,
                     "metode": metodeController.text,
-                    "tanggal": data?['tanggal'] ?? "",
+                    "tanggal": data['tanggal'] ?? "",
                   };
                 } else {
                   pembayaranList.add({
