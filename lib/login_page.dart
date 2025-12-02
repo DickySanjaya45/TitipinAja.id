@@ -13,9 +13,11 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  
+
   bool _obscurePassword = true;
   bool _isLoading = false;
+
+  String selectedRole = "User"; // default role
 
   @override
   void dispose() {
@@ -48,44 +50,54 @@ class _LoginPageState extends State<LoginPage> {
       _isLoading = false;
     });
 
-    // LOGIN ADMIN
-    if (email == 'admin@gmail.com' && password == '12345') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Login Admin berhasil!'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const DashboardAdmin()),
-      );
-    }
-
-    // LOGIN USER
-    else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Login User berhasil!'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-
-      final userData = {
-        'email': email,
-        'username': email.split('@').first,
-      };
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => DashboardUser(
-            userData: userData,
-            token: 'dummy_token',
+    // ===================== LOGIN ADMIN =====================
+    if (selectedRole == "Admin") {
+      if (email == 'admin@gmail.com' && password == '12345') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Login Admin Berhasil!'),
+            behavior: SnackBarBehavior.floating,
           ),
-        ),
-      );
+        );
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const DashboardAdmin()),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Email atau password admin salah'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+
+      return;
     }
+
+    // ===================== LOGIN USER =====================
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Login User berhasil!'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+
+    final userData = {
+      'email': email,
+      'username': email.split('@').first,
+    };
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DashboardUser(
+          userData: userData,
+          token: 'dummy_token',
+        ),
+      ),
+    );
   }
 
   @override
@@ -111,6 +123,7 @@ class _LoginPageState extends State<LoginPage> {
                     color: Colors.deepPurple,
                   ),
                   const SizedBox(height: 20),
+
                   const Text(
                     'Login Sistem Penitipan Motor',
                     style: TextStyle(
@@ -120,9 +133,34 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     textAlign: TextAlign.center,
                   ),
+
                   const SizedBox(height: 30),
 
-                  // Field Email
+                  // ==================== ROLE ====================
+                  DropdownButtonFormField<String>(
+                    value: selectedRole,
+                    decoration: InputDecoration(
+                      labelText: "Login Sebagai",
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    items: ["Admin", "User"].map((role) {
+                      return DropdownMenuItem(
+                        value: role,
+                        child: Text(role),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      setState(() {
+                        selectedRole = val!;
+                      });
+                    },
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // ==================== EMAIL ====================
                   TextField(
                     controller: emailController,
                     decoration: InputDecoration(
@@ -135,7 +173,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Field Password
+                  // ==================== PASSWORD ====================
                   TextField(
                     controller: passwordController,
                     obscureText: _obscurePassword,
@@ -161,7 +199,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Tombol Login
+                  // ==================== LOGIN BUTTON ====================
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -193,7 +231,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Tombol Register
+                  // ==================== REGISTER BUTTON ====================
                   TextButton(
                     onPressed: () {
                       Navigator.push(
