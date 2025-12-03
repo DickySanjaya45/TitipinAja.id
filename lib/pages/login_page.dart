@@ -1,8 +1,8 @@
-import 'dart:ui'; // Diperlukan untuk BackdropFilter
+import 'dart:ui';
 import 'package:flutter/material.dart';
 
-// --- IMPORT FILE API & DASHBOARD ---
-import '../services/api_service.dart'; 
+// --- IMPORTS ---
+import '../services/api_service.dart';
 import '../dashboard/dashboard_admin.dart';
 import '../dashboard/dashboard_user.dart';
 import 'register_page.dart';
@@ -15,141 +15,116 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
-  
-  bool _obscurePassword = true;
+  // Controllers
+  final _emailCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+
+  // State
+  bool _obscurePass = true;
   bool _isLoading = false;
-  
-  // Default pilihan UI (Huruf Kapital)
-  String selectedRole = "User";
+  String _selectedRole = "User"; // Default UI Selection
 
-  // --- FUNGSI LOGIN UTAMA ---
-  Future<void> _login() async {
-    String email = emailController.text.trim();
-    String password = passwordController.text.trim();
+  // CLEANING: Hapus controller dari memori
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    _passCtrl.dispose();
+    super.dispose();
+  }
 
-    // 1. Validasi Input Kosong
+  // =======================
+  // 🔐 LOGIC LOGIN
+  // =======================
+  Future<void> _handleLogin() async {
+    final email = _emailCtrl.text.trim();
+    final password = _passCtrl.text.trim();
+
+    // 1. Validasi Input
     if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Email dan Password wajib diisi'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSnack("Email dan Password wajib diisi", isError: true);
       return;
     }
 
-    // 2. Set Loading
     setState(() => _isLoading = true);
 
     try {
-      // 3. Konversi Role UI ("Admin") ke Role API ("admin")
-      // Backend Laravel mewajibkan huruf kecil ('admin' atau 'user')
-      String apiRole = selectedRole.toLowerCase();
+      // 2. Request API
+      // Konversi role UI ("Admin") ke lowercase ("admin") untuk API
+      final response = await ApiService.login(email, password, _selectedRole.toLowerCase());
 
-      // 4. Panggil API Service
-      final response = await ApiService.login(email, password, apiRole);
-
-      // Matikan Loading
       if (!mounted) return;
       setState(() => _isLoading = false);
 
-      // 5. Cek Response
+      // 3. Handle Response
       if (response['success'] == true) {
-        // --- LOGIN SUKSES ---
-        String token = response['token'];
-        String returnedRole = response['role']; // Role dari database
-        Map<String, dynamic> userData = response['data']; // Data profil user/admin
-
-        if (returnedRole == 'admin') {
-          // Masuk ke Dashboard Admin
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => DashboardAdmin(
-                token: token, 
-                adminData: userData
-              ),
-            ),
-          );
-        } else {
-          // Masuk ke Dashboard User
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => DashboardUser(
-                token: token,
-                userData: userData,
-              ),
-            ),
-          );
-        }
+        _navigateDashboard(response);
       } else {
-        // --- LOGIN GAGAL (Password Salah / Email tidak ada) ---
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response['message'] ?? 'Login Gagal'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showSnack(response['message'] ?? 'Login Gagal', isError: true);
       }
     } catch (e) {
-      // --- ERROR KONEKSI ---
       if (!mounted) return;
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Terjadi kesalahan: $e"),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSnack("Terjadi kesalahan koneksi", isError: true);
     }
   }
 
+  void _navigateDashboard(Map<String, dynamic> response) {
+    final String token = response['token'];
+    final Map<String, dynamic> userData = response['data'];
+    final String role = response['role'];
+
+    // Routing berdasarkan Role
+    Widget page = (role == 'admin')
+        ? DashboardAdmin(token: token, adminData: userData)
+        : DashboardUser(token: token, userData: userData);
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => page),
+    );
+  }
+
+  void _showSnack(String msg, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: isError ? Colors.red : Colors.green,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  // =======================
+  // 🎨 UI BUILDER
+  // =======================
   @override
   Widget build(BuildContext context) {
-    // Warna tema lokal
     final primaryColor = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // 1. BACKGROUND DECORATION (Blobs)
-          Positioned(
-            top: -100,
-            left: -50,
-            child: _buildBlurCircle(300, primaryColor.withAlpha((0.4 * 255).round())),
-          ),
-          Positioned(
-            top: 100,
-            right: -80,
-            child: _buildBlurCircle(250, const Color(0xFF00C897).withAlpha((0.3 * 255).round())),
-          ),
-          Positioned(
-            bottom: -50,
-            left: 20,
-            child: _buildBlurCircle(200, Colors.orangeAccent.withAlpha((0.2 * 255).round())),
-          ),
+          // 1. Background Decoration
+          _buildBackgroundBlobs(primaryColor),
 
-          // 2. MAIN CONTENT (Glass Card)
+          // 2. Main Content
           Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(30),
                 child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5), // Reduced from 10 for better performance
+                  filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
                   child: Container(
                     padding: const EdgeInsets.all(32),
                     decoration: BoxDecoration(
-                      color: Colors.white.withAlpha((0.7 * 255).round()), // Putih transparan
+                      color: Colors.white.withOpacity(0.7), // Clean Opacity
                       borderRadius: BorderRadius.circular(30),
-                      border: Border.all(color: Colors.white.withAlpha((0.5 * 255).round())),
+                      border: Border.all(color: Colors.white.withOpacity(0.5)),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.grey.withAlpha((0.2 * 255).round()),
+                          color: Colors.grey.withOpacity(0.2),
                           blurRadius: 20,
                           spreadRadius: 5,
                         ),
@@ -158,91 +133,22 @@ class _LoginPageState extends State<LoginPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Logo / Icon
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: primaryColor.withAlpha((0.1 * 255).round()),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(Icons.local_parking_rounded, size: 48, color: primaryColor),
-                        ),
-                        const SizedBox(height: 20),
-                        
-                        Text(
-                          "TitipinAja",
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.grey.shade800,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          "Masuk untuk mengelola parkir Anda",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.grey.shade500),
-                        ),
+                        _buildHeader(primaryColor),
                         const SizedBox(height: 32),
-
-                        // Form Fields
-                        _buildRoleSelector(), // Pilihan Admin / User
+                        _buildRoleSelector(primaryColor),
                         const SizedBox(height: 16),
-                        
-                        TextField(
-                          controller: emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(
-                            labelText: "Email Address",
-                            prefixIcon: Icon(Icons.email_outlined),
-                          ),
+                        _buildTextField(
+                          controller: _emailCtrl,
+                          label: "Email Address",
+                          icon: Icons.email_outlined,
+                          inputType: TextInputType.emailAddress,
                         ),
                         const SizedBox(height: 16),
-                        
-                        TextField(
-                          controller: passwordController,
-                          obscureText: _obscurePassword,
-                          decoration: InputDecoration(
-                            labelText: "Password",
-                            prefixIcon: const Icon(Icons.lock_outline),
-                            suffixIcon: IconButton(
-                              icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
-                              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                            ),
-                          ),
-                        ),
+                        _buildPasswordField(),
                         const SizedBox(height: 24),
-
-                        // Login Button
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _login,
-                            child: _isLoading
-                                ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
-                                : const Text("MASUK"),
-                          ),
-                        ),
-
+                        _buildLoginButton(),
                         const SizedBox(height: 20),
-                        // Register Link
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text("Belum punya akun? ", style: TextStyle(color: Colors.grey.shade600)),
-                            GestureDetector(
-                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterPage())),
-                              child: Text(
-                                "Daftar",
-                                style: TextStyle(
-                                  color: primaryColor,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            )
-                          ],
-                        )
+                        _buildRegisterLink(primaryColor),
                       ],
                     ),
                   ),
@@ -255,15 +161,31 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // Widget Dekorasi Bulat Blur
-  Widget _buildBlurCircle(double size, Color color) {
+  // --- WIDGET COMPONENTS ---
+
+  Widget _buildBackgroundBlobs(Color color) {
+    return Stack(
+      children: [
+        Positioned(
+          top: -100, left: -50,
+          child: _blurCircle(300, color.withOpacity(0.4)),
+        ),
+        Positioned(
+          top: 100, right: -80,
+          child: _blurCircle(250, const Color(0xFF00C897).withOpacity(0.3)),
+        ),
+        Positioned(
+          bottom: -50, left: 20,
+          child: _blurCircle(200, Colors.orangeAccent.withOpacity(0.2)),
+        ),
+      ],
+    );
+  }
+
+  Widget _blurCircle(double size, Color color) {
     return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-      ),
+      width: size, height: size,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
         child: Container(color: Colors.transparent),
@@ -271,29 +193,56 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // Widget Pilihan Role Custom
-  Widget _buildRoleSelector() {
+  Widget _buildHeader(Color color) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(Icons.local_parking_rounded, size: 48, color: color),
+        ),
+        const SizedBox(height: 20),
+        Text(
+          "TitipinAja",
+          style: TextStyle(
+            fontSize: 28, fontWeight: FontWeight.w800,
+            color: Colors.grey.shade800, letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          "Masuk untuk mengelola parkir Anda",
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.grey.shade500),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRoleSelector(Color primaryColor) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: Colors.grey.shade100,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: ["User", "Admin"].map((role) {
-          final isSelected = selectedRole == role;
+          final isSelected = _selectedRole == role;
           return Expanded(
             child: GestureDetector(
-              onTap: () => setState(() => selectedRole = role),
+              onTap: () => setState(() => _selectedRole = role),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                margin: const EdgeInsets.all(4),
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
                   color: isSelected ? Colors.white : Colors.transparent,
                   borderRadius: BorderRadius.circular(10),
                   boxShadow: isSelected
-                      ? [BoxShadow(color: Colors.black.withAlpha((0.05 * 255).round()), blurRadius: 4, spreadRadius: 1)]
+                      ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)]
                       : [],
                 ),
                 child: Text(
@@ -301,7 +250,7 @@ class _LoginPageState extends State<LoginPage> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                    color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey.shade500,
+                    color: isSelected ? primaryColor : Colors.grey.shade500,
                   ),
                 ),
               ),
@@ -309,6 +258,73 @@ class _LoginPageState extends State<LoginPage> {
           );
         }).toList(),
       ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    TextInputType inputType = TextInputType.text,
+  }) {
+    return TextField(
+      controller: controller,
+      keyboardType: inputType,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+      ),
+    );
+  }
+
+  Widget _buildPasswordField() {
+    return TextField(
+      controller: _passCtrl,
+      obscureText: _obscurePass,
+      decoration: InputDecoration(
+        labelText: "Password",
+        prefixIcon: const Icon(Icons.lock_outline),
+        suffixIcon: IconButton(
+          icon: Icon(_obscurePass ? Icons.visibility_off : Icons.visibility),
+          onPressed: () => setState(() => _obscurePass = !_obscurePass),
+        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+      ),
+    );
+  }
+
+  Widget _buildLoginButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _handleLogin,
+        style: ElevatedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        child: _isLoading
+            ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
+            : const Text("MASUK", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+
+  Widget _buildRegisterLink(Color color) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text("Belum punya akun? ", style: TextStyle(color: Colors.grey.shade600)),
+        GestureDetector(
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterPage())),
+          child: Text(
+            "Daftar",
+            style: TextStyle(color: color, fontWeight: FontWeight.bold),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -1,59 +1,69 @@
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
-import '../../models/motor_model.dart'; // Pastikan import model yang baru dibuat
+import '../../models/motor_model.dart';
 
 class PageMotorSaya extends StatefulWidget {
   final String token;
-  final Map<String, dynamic> userData; // Butuh data user untuk filter ID
+  final Map<String, dynamic> userData;
 
-  const PageMotorSaya({
-    super.key, 
-    required this.token, 
-    required this.userData
-  });
+  const PageMotorSaya({super.key, required this.token, required this.userData});
 
   @override
   State<PageMotorSaya> createState() => _PageMotorSayaState();
 }
 
 class _PageMotorSayaState extends State<PageMotorSaya> {
+  // State
   List<MotorModel> _listMotor = [];
   bool _isLoading = true;
 
-  // Controller
-  final TextEditingController merkController = TextEditingController();
-  final TextEditingController platController = TextEditingController();
-  final TextEditingController warnaController = TextEditingController();
-  final TextEditingController tahunController = TextEditingController();
+  // Controllers
+  final _merkCtrl = TextEditingController();
+  final _platCtrl = TextEditingController();
+  final _warnaCtrl = TextEditingController();
+  final _tahunCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _fetchMotorSaya();
+    _fetchData();
   }
 
+  // 1. CLEANING: Hapus controller dari memori saat widget ditutup
   @override
   void dispose() {
-    merkController.dispose();
-    platController.dispose();
-    warnaController.dispose();
-    tahunController.dispose();
+    _merkCtrl.dispose();
+    _platCtrl.dispose();
+    _warnaCtrl.dispose();
+    _tahunCtrl.dispose();
     super.dispose();
   }
 
-  // --- LOGIKA API ---
+  // Helper: Parsing ID aman (menangani String atau Int)
+  int _parseId(dynamic value) {
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
+  }
 
-  // 1. Ambil Data
-  Future<void> _fetchMotorSaya() async {
+  // =======================
+  // 2. LOGIC API (Terpisah dari UI)
+  // =======================
+  
+  Future<void> _fetchData() async {
     setState(() => _isLoading = true);
     try {
       final rawData = await ApiService.getMotor(widget.token);
       
-      // Ambil ID User yang sedang login
-      int myUserId = widget.userData['id_pengguna'] ?? widget.userData['id'];
+      // Ambil ID User Login dengan aman
+      int myUserId = _parseId(widget.userData['id_pengguna']) != 0 
+          ? _parseId(widget.userData['id_pengguna']) 
+          : _parseId(widget.userData['id']);
+
+      if (!mounted) return;
 
       setState(() {
-        // Filter: Hanya ambil motor yang id_pengguna-nya sama dengan user login
+        // Filter data menggunakan Model
         _listMotor = rawData
             .map((json) => MotorModel.fromJson(json))
             .where((motor) => motor.idPengguna == myUserId)
@@ -61,166 +71,121 @@ class _PageMotorSayaState extends State<PageMotorSaya> {
         _isLoading = false;
       });
     } catch (e) {
-      _showSnackBar("Gagal memuat data: $e");
-      setState(() => _isLoading = false);
+      _showMsg("Gagal memuat data");
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // 2. Tambah Data
-  Future<void> _tambahMotor() async {
-    int myUserId = widget.userData['id_pengguna'] ?? widget.userData['id'];
-
-    Map<String, dynamic> data = {
-      "id_pengguna": myUserId, // Otomatis pakai ID sendiri
-      "merk": merkController.text,
-      "plat_nomor": platController.text,
-      "warna": warnaController.text,
-      "tahun": int.tryParse(tahunController.text) ?? DateTime.now().year,
-    };
-
-    try {
-      final response = await ApiService.createMotor(widget.token, data);
-      if (!mounted) return;
-      if (response['success'] == true) {
-        Navigator.pop(context);
-        _showSnackBar("Motor berhasil ditambahkan");
-        _fetchMotorSaya();
-      } else {
-        _showSnackBar("Gagal: ${response['message']}");
-      }
-    } catch (e) {
-      if (!mounted) return;
-      _showSnackBar("Error: $e");
+  Future<void> _submitForm({int? id}) async {
+    if (_merkCtrl.text.isEmpty || _platCtrl.text.isEmpty) {
+      _showMsg("Merk dan Plat Nomor wajib diisi!");
+      return;
     }
-  }
 
-  // 3. Update Data
-  Future<void> _updateMotor(int idMotor) async {
-    int myUserId = widget.userData['id_pengguna'] ?? widget.userData['id'];
+    Navigator.pop(context); // Tutup dialog
+    setState(() => _isLoading = true);
+
+    int myUserId = _parseId(widget.userData['id_pengguna']) != 0 
+          ? _parseId(widget.userData['id_pengguna']) 
+          : _parseId(widget.userData['id']);
 
     Map<String, dynamic> data = {
       "id_pengguna": myUserId,
-      "merk": merkController.text,
-      "plat_nomor": platController.text,
-      "warna": warnaController.text,
-      "tahun": int.tryParse(tahunController.text) ?? 2020,
+      "merk": _merkCtrl.text,
+      "plat_nomor": _platCtrl.text,
+      "warna": _warnaCtrl.text,
+      "tahun": int.tryParse(_tahunCtrl.text) ?? DateTime.now().year,
     };
 
     try {
-      final response = await ApiService.updateMotor(idMotor, widget.token, data);
-      if (!mounted) return;
+      final response = id == null
+          ? await ApiService.createMotor(widget.token, data)
+          : await ApiService.updateMotor(id, widget.token, data);
+
       if (response['success'] == true) {
-        Navigator.pop(context);
-        _showSnackBar("Motor berhasil diperbarui");
-        _fetchMotorSaya();
+        _showMsg(id == null ? "Motor ditambahkan" : "Data diperbarui");
+        _clearCtrl();
+        _fetchData();
       } else {
-        _showSnackBar("Gagal: ${response['message']}");
+        _showMsg("Gagal: ${response['message']}");
+        if (mounted) setState(() => _isLoading = false);
       }
     } catch (e) {
-      if (!mounted) return;
-      _showSnackBar("Error: $e");
+      _showMsg("Error: $e");
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // 4. Hapus Data
-  Future<void> _hapusMotor(int idMotor) async {
+  Future<void> _deleteData(int id) async {
+    Navigator.pop(context);
+    setState(() => _isLoading = true);
+
     try {
-      final response = await ApiService.deleteMotor(idMotor, widget.token);
-      if (!mounted) return;
+      final response = await ApiService.deleteMotor(id, widget.token);
       if (response['success'] == true) {
-        Navigator.pop(context); // Tutup dialog
-        _showSnackBar("Motor berhasil dihapus");
-        _fetchMotorSaya();
+        _showMsg("Motor dihapus");
+        _fetchData();
       } else {
-        _showSnackBar("Gagal menghapus: ${response['message']}");
+        _showMsg("Gagal menghapus");
+        if (mounted) setState(() => _isLoading = false);
       }
     } catch (e) {
-      if (!mounted) return;
-      _showSnackBar("Error menghapus motor: $e");
+      _showMsg("Error: $e");
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // --- HELPER & UI ---
-
-  void _resetForm() {
-    merkController.clear();
-    platController.clear();
-    warnaController.clear();
-    tahunController.clear();
+  // =======================
+  // 3. HELPER UI
+  // =======================
+  void _clearCtrl() {
+    _merkCtrl.clear(); _platCtrl.clear(); _warnaCtrl.clear(); _tahunCtrl.clear();
   }
 
-  void _showSnackBar(String message) {
+  void _showMsg(String msg) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+      SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
     );
   }
 
-  // Form Modal (Tambah/Edit)
-  void _showFormDialog({MotorModel? motor}) {
-    bool isEdit = motor != null;
-
+  void _openForm({MotorModel? item}) {
+    bool isEdit = item != null;
     if (isEdit) {
-      merkController.text = motor.merk;
-      platController.text = motor.platNomor;
-      warnaController.text = motor.warna;
-      tahunController.text = motor.tahun.toString();
+      _merkCtrl.text = item.merk;
+      _platCtrl.text = item.platNomor;
+      _warnaCtrl.text = item.warna;
+      _tahunCtrl.text = item.tahun.toString();
     } else {
-      _resetForm();
+      _clearCtrl();
     }
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-      ),
-      builder: (context) => Padding(
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+      builder: (ctx) => Padding(
         padding: EdgeInsets.only(
-          top: 25,
-          left: 22,
-          right: 22,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 22,
+          top: 25, left: 22, right: 22,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 22,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              isEdit ? "Edit Motor" : "Tambah Motor",
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 18),
-            _buildTextField(merkController, "Merk Motor (Cth: Honda Vario)"),
+            Text(isEdit ? "Edit Motor" : "Tambah Motor", textAlign: TextAlign.center, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            _buildInput("Merk Motor", _merkCtrl),
             const SizedBox(height: 12),
-            _buildTextField(platController, "Plat Nomor (Cth: B 1234 XYZ)"),
+            _buildInput("Plat Nomor", _platCtrl),
             const SizedBox(height: 12),
-            _buildTextField(warnaController, "Warna (Cth: Hitam)"),
-            const SizedBox(height: 12),
-            _buildTextField(tahunController, "Tahun (Cth: 2023)", isNumber: true),
-            const SizedBox(height: 22),
+            Row(children: [Expanded(child: _buildInput("Warna", _warnaCtrl)), const SizedBox(width: 12), Expanded(child: _buildInput("Tahun", _tahunCtrl, isNumber: true))]),
+            const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: () {
-                if (merkController.text.isEmpty || platController.text.isEmpty) {
-                  _showSnackBar("Merk dan Plat Nomor wajib diisi!");
-                  return;
-                }
-                if (isEdit) {
-                  _updateMotor(motor.idMotor);
-                } else {
-                  _tambahMotor();
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF5B2B9C),
-                minimumSize: const Size(double.infinity, 54),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              child: Text(
-                isEdit ? "Simpan Perubahan" : "Tambah Motor",
-                style: const TextStyle(fontSize: 16, color: Colors.white),
-              ),
+              onPressed: () => _submitForm(id: item?.idMotor),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF5B2B9C), padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              child: Text(isEdit ? "Simpan Perubahan" : "Tambah Motor", style: const TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -228,18 +193,17 @@ class _PageMotorSayaState extends State<PageMotorSaya> {
     );
   }
 
-  // Dialog Konfirmasi Hapus
-  void _showDeleteDialog(MotorModel motor) {
+  void _openDeleteConfirm(MotorModel item) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (_) => AlertDialog(
         title: const Text("Hapus Motor"),
-        content: Text("Yakin ingin menghapus ${motor.merk}?"),
+        content: Text("Yakin ingin menghapus ${item.merk}?"),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => _hapusMotor(motor.idMotor),
+            onPressed: () => _deleteData(item.idMotor),
             child: const Text("Hapus", style: TextStyle(color: Colors.white)),
           ),
         ],
@@ -247,103 +211,74 @@ class _PageMotorSayaState extends State<PageMotorSaya> {
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, {bool isNumber = false}) {
+  Widget _buildInput(String label, TextEditingController ctrl, {bool isNumber = false}) {
     return TextField(
-      controller: controller,
+      controller: ctrl,
       keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-      decoration: InputDecoration(
-        labelText: label,
-        filled: true,
-        fillColor: Colors.grey.shade100,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+      decoration: InputDecoration(labelText: label, filled: true, fillColor: Colors.grey.shade100, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
+    );
+  }
+
+  // =======================
+  // 4. MAIN BUILD
+  // =======================
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Motor Saya"), backgroundColor: Colors.white, foregroundColor: Colors.black87, elevation: 0),
+      backgroundColor: const Color(0xFFF5F7FA),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _listMotor.isEmpty
+              ? _buildEmptyState()
+              : RefreshIndicator(
+                  onRefresh: _fetchData,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _listMotor.length,
+                    separatorBuilder: (ctx, i) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      return _buildMotorCard(_listMotor[index]);
+                    },
+                  ),
+                ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _openForm(),
+        backgroundColor: const Color(0xFF5B2B9C),
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Motor Saya"),
-        backgroundColor: const Color(0xFF5B2B9C),
-        foregroundColor: Colors.white,
-        elevation: 0,
+  Widget _buildMotorCard(MotorModel motor) {
+    return Container(
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))]),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(16),
+        leading: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: const Color(0xFF5B2B9C).withOpacity(0.1), shape: BoxShape.circle),
+          child: const Icon(Icons.motorcycle, color: Color(0xFF5B2B9C)),
+        ),
+        title: Text(motor.merk, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        subtitle: Padding(padding: const EdgeInsets.only(top: 6), child: Text("${motor.platNomor} • ${motor.warna}", style: TextStyle(color: Colors.grey[600]))),
+        trailing: PopupMenuButton(
+          onSelected: (val) => val == 'edit' ? _openForm(item: motor) : _openDeleteConfirm(motor),
+          itemBuilder: (ctx) => [const PopupMenuItem(value: 'edit', child: Text("Edit")), const PopupMenuItem(value: 'del', child: Text("Hapus", style: TextStyle(color: Colors.red)))],
+        ),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _listMotor.isEmpty
-              ? const Center(
-                  child: Text(
-                    "Belum ada motor terdaftar.",
-                    style: TextStyle(fontSize: 17, color: Colors.grey),
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: _listMotor.length,
-                  itemBuilder: (context, index) {
-                    final motor = _listMotor[index];
-                    return Card(
-                      elevation: 4,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      margin: const EdgeInsets.symmetric(vertical: 8),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.all(16),
-                        leading: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Color(0xFF5B2B9C).withAlpha((0.1 * 255).round()),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.motorcycle,
-                            color: Color(0xFF5B2B9C),
-                            size: 30,
-                          ),
-                        ),
-                        title: Text(
-                          motor.merk,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        ),
-                        subtitle: Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "Plat: ${motor.platNomor}",
-                                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
-                              ),
-                              Text(
-                                "Warna: ${motor.warna} • Tahun: ${motor.tahun}",
-                                style: const TextStyle(fontSize: 13),
-                              ),
-                            ],
-                          ),
-                        ),
-                        trailing: PopupMenuButton(
-                          onSelected: (value) {
-                            if (value == 'edit') _showFormDialog(motor: motor);
-                            if (value == 'delete') _showDeleteDialog(motor);
-                          },
-                          itemBuilder: (context) => [
-                            const PopupMenuItem(value: 'edit', child: Text("Edit")),
-                            const PopupMenuItem(value: 'delete', child: Text("Hapus", style: TextStyle(color: Colors.red))),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showFormDialog(),
-        backgroundColor: const Color(0xFF5B2B9C),
-        child: const Icon(Icons.add),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.two_wheeler_rounded, size: 80, color: Colors.grey.shade300),
+          const SizedBox(height: 16),
+          const Text("Belum ada motor", style: TextStyle(fontSize: 16, color: Colors.grey)),
+        ],
       ),
     );
   }

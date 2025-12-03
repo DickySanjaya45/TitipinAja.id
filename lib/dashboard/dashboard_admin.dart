@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../services/api_service.dart'; // Pastikan path ini benar
-import '../pages/login_page.dart'; // Pastikan path ini benar
+import '../../services/api_service.dart'; // Pastikan path benar
+import '../pages/login_page.dart'; // Pastikan path benar
 
-// Import halaman-halaman menu
+// Import halaman-halaman menu (Admin Pages)
 import 'pengguna_page.dart';
 import 'motor_page.dart';
 import 'pembayaran_page.dart';
@@ -28,11 +28,11 @@ class _DashboardAdminState extends State<DashboardAdmin> {
   int _selectedIndex = 0;
   bool _isLoggingOut = false;
 
-  // Fungsi Logout
+  // --- FUNGSI LOGOUT ---
   Future<void> _handleLogout() async {
     setState(() => _isLoggingOut = true);
 
-    // 1. Request Logout ke Backend
+    // 1. Request Logout ke Backend (Hapus token di server)
     await ApiService.logout(widget.token);
 
     if (!mounted) return;
@@ -47,12 +47,11 @@ class _DashboardAdminState extends State<DashboardAdmin> {
 
   @override
   Widget build(BuildContext context) {
-    // Ambil Data Admin dengan Null Safety
-    // Pastikan key 'nama_petugas' sesuai dengan respon JSON login Anda
+    // Ambil Data Admin (Nama, Shift)
     String adminName = widget.adminData['nama_petugas'] ?? widget.adminData['nama'] ?? 'Admin';
-    String adminShift = widget.adminData['shift_kerja'] ?? 'All Shift';
+    String adminShift = widget.adminData['shift_kerja'] ?? 'Shift -';
 
-    // Cek Lebar Layar (Responsif)
+    // Cek Lebar Layar (Responsif untuk Tablet/Desktop vs Mobile)
     bool isMobile = MediaQuery.of(context).size.width < 800;
 
     return Scaffold(
@@ -87,13 +86,12 @@ class _DashboardAdminState extends State<DashboardAdmin> {
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withAlpha((0.05 * 255).round()),
-                    blurRadius: 20,
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
                 ],
               ),
-              // ClipRRect agar konten tidak keluar dari radius
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(24),
                 child: _buildContent(),
@@ -105,7 +103,7 @@ class _DashboardAdminState extends State<DashboardAdmin> {
     );
   }
 
-  // Widget Sidebar (Reusable)
+  // --- WIDGET SIDEBAR ---
   Widget _buildSidebar(String name, String shift) {
     return Container(
       color: Colors.white,
@@ -114,12 +112,12 @@ class _DashboardAdminState extends State<DashboardAdmin> {
           // Header Profil
           Container(
             padding: const EdgeInsets.symmetric(vertical: 40),
-                  child: Column(
+            child: Column(
               children: [
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withAlpha((0.1 * 255).round()),
+                    color: Theme.of(context).primaryColor.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -181,7 +179,7 @@ class _DashboardAdminState extends State<DashboardAdmin> {
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 decoration: BoxDecoration(
-                  color: Colors.red.withAlpha((0.1 * 255).round()),
+                  color: Colors.red.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: _isLoggingOut 
@@ -232,24 +230,22 @@ class _DashboardAdminState extends State<DashboardAdmin> {
     );
   }
 
-  // Switcher Konten Utama
+  // --- CONTENT SWITCHER ---
   Widget _buildContent() {
-    // PENTING:
-    // Pastikan MotorPage, RiwayatPage, dll sudah diupdate konstruktornya 
-    // agar menerima parameter 'token'.
+    // PENTING: Kita kirim 'token' ke setiap halaman anak
     switch (_selectedIndex) {
       case 0: return _buildHomeDashboard();
-      case 1: return PenggunaPage(token: widget.token); // Sudah kita perbaiki
-      case 2: return MotorPage(token: widget.token); // <--- Perlu update file MotorPage
-      case 3: return PembayaranPage(token: widget.token); // <--- Perlu update file PembayaranPage
-      case 4: return RiwayatPage(token: widget.token); // <--- Perlu update file RiwayatPage
-      case 5: return ParkirPage(token: widget.token); // <--- Perlu update file ParkirPage
+      case 1: return PenggunaPage(token: widget.token);
+      case 2: return MotorPage(token: widget.token);
+      case 3: return PembayaranPage(token: widget.token); 
+      case 4: return RiwayatPage(token: widget.token);
+      case 5: return ParkirPage(token: widget.token);
       case 6: return PengaturanPage(token: widget.token, adminData: widget.adminData);
       default: return const SizedBox();
     }
   }
 
-  // Halaman Dashboard Home (Statistik)
+  // Halaman Dashboard Home (Statistik Sederhana)
   Widget _buildHomeDashboard() {
     return Center(
       child: Column(

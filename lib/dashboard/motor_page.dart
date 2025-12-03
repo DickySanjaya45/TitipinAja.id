@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../widgets/custom_appbar.dart'; // Pastikan path ini benar
-import '../../services/api_service.dart'; // Import ApiService
+import '../widgets/custom_appbar.dart';
+import '../../services/api_service.dart';
 
 class MotorPage extends StatefulWidget {
-  final String token; // Token wajib diterima dari Dashboard
+  final String token;
 
   const MotorPage({super.key, required this.token});
 
@@ -12,16 +12,15 @@ class MotorPage extends StatefulWidget {
 }
 
 class _MotorPageState extends State<MotorPage> {
-  // Variabel State
-  List<dynamic> _daftarMotor = [];
+  List<dynamic> _listMotor = [];
   bool _isLoading = true;
 
-  // Controller
-  final TextEditingController platController = TextEditingController();
-  final TextEditingController merkController = TextEditingController();
-  final TextEditingController warnaController = TextEditingController();
-  final TextEditingController tahunController = TextEditingController();
-  final TextEditingController penggunaIdController = TextEditingController();
+  // Controllers
+  final _platCtrl = TextEditingController();
+  final _merkCtrl = TextEditingController();
+  final _warnaCtrl = TextEditingController();
+  final _tahunCtrl = TextEditingController();
+  final _userIdCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -29,136 +28,113 @@ class _MotorPageState extends State<MotorPage> {
     _fetchMotor();
   }
 
-  // =======================
-  //  1. GET DATA (READ)
-  // =======================
+  // PENTING: Hapus controller agar memori hemat
+  @override
+  void dispose() {
+    _platCtrl.dispose();
+    _merkCtrl.dispose();
+    _warnaCtrl.dispose();
+    _tahunCtrl.dispose();
+    _userIdCtrl.dispose();
+    super.dispose();
+  }
+
+  // --- 1. GET DATA ---
   Future<void> _fetchMotor() async {
     setState(() => _isLoading = true);
-    
     try {
       final data = await ApiService.getMotor(widget.token);
       setState(() {
-        _daftarMotor = data;
+        _listMotor = data;
         _isLoading = false;
       });
     } catch (e) {
-      _showSnackBar("Gagal mengambil data: $e");
+      _showMsg("Gagal memuat data");
       setState(() => _isLoading = false);
     }
   }
 
-  // =======================
-  //  2. TAMBAH MOTOR
-  // =======================
-  Future<void> _tambahMotor() async {
-    // Validasi input sederhana
-    if (penggunaIdController.text.isEmpty || platController.text.isEmpty) {
-      _showSnackBar("ID Pengguna dan Plat Nomor wajib diisi");
+  // --- 2. CREATE / UPDATE ---
+  Future<void> _submitForm({int? id}) async {
+    if (_userIdCtrl.text.isEmpty || _platCtrl.text.isEmpty) {
+      _showMsg("ID Pengguna & Plat Nomor wajib diisi");
       return;
     }
 
+    Navigator.pop(context); // Tutup dialog dulu biar smooth
+    setState(() => _isLoading = true);
+
     Map<String, dynamic> data = {
-      "id_pengguna": int.tryParse(penggunaIdController.text) ?? 0,
-      "merk": merkController.text,
-      "plat_nomor": platController.text,
-      "warna": warnaController.text,
-      "tahun": int.tryParse(tahunController.text) ?? DateTime.now().year,
+      "id_pengguna": int.tryParse(_userIdCtrl.text) ?? 0,
+      "merk": _merkCtrl.text,
+      "plat_nomor": _platCtrl.text,
+      "warna": _warnaCtrl.text,
+      "tahun": int.tryParse(_tahunCtrl.text) ?? DateTime.now().year,
     };
 
     try {
-      final response = await ApiService.createMotor(widget.token, data);
+      final response = id == null
+          ? await ApiService.createMotor(widget.token, data)
+          : await ApiService.updateMotor(id, widget.token, data);
 
       if (response['success'] == true) {
-        _showSnackBar("Motor berhasil ditambahkan");
-        if (!mounted) return;
-        Navigator.pop(context);
-        _clearControllers();
-        _fetchMotor(); // Refresh data
-      } else {
-        _showSnackBar("Gagal: ${response['message']}");
-      }
-    } catch (e) {
-      _showSnackBar("Error: $e");
-    }
-  }
-
-  // =======================
-  //  3. UPDATE MOTOR
-  // =======================
-  Future<void> _updateMotor(int id) async {
-    Map<String, dynamic> data = {
-      "id_pengguna": int.tryParse(penggunaIdController.text) ?? 0,
-      "merk": merkController.text,
-      "plat_nomor": platController.text,
-      "warna": warnaController.text,
-      "tahun": int.tryParse(tahunController.text) ?? 2020,
-    };
-
-    try {
-      final response = await ApiService.updateMotor(id, widget.token, data);
-
-      if (response['success'] == true) {
-        _showSnackBar("Data motor berhasil diperbarui");
-        if (!mounted) return;
-        Navigator.pop(context);
-        _clearControllers();
+        _showMsg(id == null ? "Berhasil ditambah" : "Berhasil diupdate");
+        _clearCtrl();
         _fetchMotor();
       } else {
-        _showSnackBar("Gagal: ${response['message']}");
+        _showMsg(response['message'] ?? "Gagal");
+        setState(() => _isLoading = false);
       }
     } catch (e) {
-      _showSnackBar("Error: $e");
+      _showMsg("Error: $e");
+      setState(() => _isLoading = false);
     }
   }
 
-  // =======================
-  //  4. HAPUS MOTOR
-  // =======================
-  Future<void> _hapusMotor(int id) async {
+  // --- 3. DELETE ---
+  Future<void> _deleteMotor(int id) async {
+    Navigator.pop(context); // Tutup dialog
+    setState(() => _isLoading = true);
+
     try {
       final response = await ApiService.deleteMotor(id, widget.token);
-
       if (response['success'] == true) {
-        _showSnackBar("Motor berhasil dihapus");
-        if (!mounted) return;
-        Navigator.pop(context); // Tutup dialog konfirmasi
+        _showMsg("Motor dihapus");
         _fetchMotor();
       } else {
-        _showSnackBar("Gagal menghapus: ${response['message']}");
+        _showMsg("Gagal menghapus");
+        setState(() => _isLoading = false);
       }
     } catch (e) {
-      _showSnackBar("Error: $e");
+      _showMsg("Error: $e");
+      setState(() => _isLoading = false);
     }
   }
 
-  // =======================
-  //  HELPER & UI
-  // =======================
-  
-  void _clearControllers() {
-    platController.clear();
-    merkController.clear();
-    warnaController.clear();
-    tahunController.clear();
-    penggunaIdController.clear();
+  // --- HELPER ---
+  void _clearCtrl() {
+    _platCtrl.clear(); _merkCtrl.clear(); _warnaCtrl.clear();
+    _tahunCtrl.clear(); _userIdCtrl.clear();
   }
 
-  void _showSnackBar(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  void _showMsg(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg), behavior: SnackBarBehavior.floating,
+    ));
   }
 
-  // Dialog Form (Tambah/Edit)
-  void _showFormDialog({Map<String, dynamic>? motor}) {
-    bool isEdit = motor != null;
-
+  // --- UI DIALOGS ---
+  void _openForm({Map<String, dynamic>? data}) {
+    bool isEdit = data != null;
     if (isEdit) {
-      platController.text = motor["plat_nomor"] ?? '';
-      merkController.text = motor["merk"] ?? '';
-      warnaController.text = motor["warna"] ?? '';
-      tahunController.text = motor["tahun"].toString();
-      penggunaIdController.text = motor["id_pengguna"].toString();
+      _userIdCtrl.text = data['id_pengguna'].toString();
+      _platCtrl.text = data['plat_nomor'] ?? '';
+      _merkCtrl.text = data['merk'] ?? '';
+      _warnaCtrl.text = data['warna'] ?? '';
+      _tahunCtrl.text = data['tahun'].toString();
     } else {
-      _clearControllers();
+      _clearCtrl();
     }
 
     showDialog(
@@ -169,25 +145,18 @@ class _MotorPageState extends State<MotorPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildTextField(penggunaIdController, "ID Pengguna (Wajib)", isNumber: true),
-              _buildTextField(platController, "Plat Nomor"),
-              _buildTextField(merkController, "Merk Motor"),
-              _buildTextField(warnaController, "Warna"),
-              _buildTextField(tahunController, "Tahun", isNumber: true),
+              _inputField(_userIdCtrl, "ID Pengguna (Wajib)", isNumber: true),
+              _inputField(_platCtrl, "Plat Nomor"),
+              _inputField(_merkCtrl, "Merk"),
+              _inputField(_warnaCtrl, "Warna"),
+              _inputField(_tahunCtrl, "Tahun", isNumber: true),
             ],
           ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
           ElevatedButton(
-            onPressed: () {
-              if (isEdit) {
-                int id = motor['id_motor'] ?? motor['id'];
-                _updateMotor(id);
-              } else {
-                _tambahMotor();
-              }
-            },
+            onPressed: () => _submitForm(id: data?['id_motor'] ?? data?['id']),
             child: Text(isEdit ? "Update" : "Simpan"),
           ),
         ],
@@ -195,21 +164,17 @@ class _MotorPageState extends State<MotorPage> {
     );
   }
 
-  // Dialog Konfirmasi Hapus
-  void _showDeleteDialog(Map<String, dynamic> motor) {
+  void _openDeleteConfirm(Map<String, dynamic> data) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text("Hapus Motor"),
-        content: Text("Yakin ingin menghapus motor ${motor['merk']} (${motor['plat_nomor']})?"),
+        title: const Text("Hapus?"),
+        content: Text("Hapus motor ${data['merk']}?"),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () {
-               int id = motor['id_motor'] ?? motor['id'];
-              _hapusMotor(id);
-            },
+            onPressed: () => _deleteMotor(data['id_motor'] ?? data['id']),
             child: const Text("Hapus", style: TextStyle(color: Colors.white)),
           ),
         ],
@@ -217,76 +182,53 @@ class _MotorPageState extends State<MotorPage> {
     );
   }
 
-  Widget _buildTextField(TextEditingController c, String label, {bool isNumber = false}) {
+  Widget _inputField(TextEditingController c, String label, {bool isNumber = false}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 10),
       child: TextField(
         controller: c,
         keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        ),
+        decoration: InputDecoration(labelText: label, border: const OutlineInputBorder(), isDense: true),
       ),
     );
   }
 
+  // --- MAIN UI ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const CustomAppBar(title: "Data Motor"),
-      
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _daftarMotor.isEmpty
+          : _listMotor.isEmpty
               ? const Center(child: Text("Belum ada data motor"))
               : ListView.builder(
                   padding: const EdgeInsets.all(12),
-                  itemCount: _daftarMotor.length,
+                  itemCount: _listMotor.length,
                   itemBuilder: (context, i) {
-                    final m = _daftarMotor[i];
-                    
-                    // Ambil nama pemilik dengan aman (Null Safety)
-                    // Backend mungkin mengirim object 'pengguna', atau null jika relasi gagal
-                    String namaPemilik = "ID: ${m['id_pengguna']}";
-                    if (m['pengguna'] != null && m['pengguna']['nama_lengkap'] != null) {
-                      namaPemilik = m['pengguna']['nama_lengkap'];
-                    }
+                    final m = _listMotor[i];
+                    // Logic Simple untuk ambil nama pemilik
+                    String pemilik = m['pengguna']?['nama_lengkap'] ?? "ID: ${m['id_pengguna']}";
 
                     return Card(
-                      elevation: 3,
-                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      elevation: 2,
+                      margin: const EdgeInsets.only(bottom: 10),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       child: ListTile(
                         leading: CircleAvatar(
                           backgroundColor: Colors.deepPurple.shade50,
                           child: const Icon(Icons.motorcycle, color: Colors.deepPurple),
                         ),
-                        title: Text(m["merk"] ?? "Tanpa Merk", style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text("Plat: ${m["plat_nomor"]} • ${m["warna"]} • ${m["tahun"]}"),
-                            const SizedBox(height: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.shade50,
-                                borderRadius: BorderRadius.circular(4)
-                              ),
-                              child: Text("Pemilik: $namaPemilik", style: TextStyle(fontSize: 12, color: Colors.blue.shade800)),
-                            ),
-                          ],
+                        title: Text(m['merk'] ?? "Tanpa Merk", style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text(
+                          "${m['plat_nomor']} • ${m['warna']} • ${m['tahun']}\nPemilik: $pemilik",
+                          style: TextStyle(height: 1.5, color: Colors.grey[700]),
                         ),
                         trailing: PopupMenuButton(
-                          onSelected: (value) {
-                            if (value == 'edit') _showFormDialog(motor: m);
-                            if (value == 'delete') _showDeleteDialog(m);
-                          },
-                          itemBuilder: (context) => [
+                          onSelected: (v) => v == 'edit' ? _openForm(data: m) : _openDeleteConfirm(m),
+                          itemBuilder: (_) => [
                             const PopupMenuItem(value: 'edit', child: Text("Edit")),
-                            const PopupMenuItem(value: 'delete', child: Text("Hapus", style: TextStyle(color: Colors.red))),
+                            const PopupMenuItem(value: 'del', child: Text("Hapus", style: TextStyle(color: Colors.red))),
                           ],
                         ),
                       ),
@@ -294,7 +236,7 @@ class _MotorPageState extends State<MotorPage> {
                   },
                 ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showFormDialog(),
+        onPressed: () => _openForm(),
         backgroundColor: Colors.deepPurple,
         child: const Icon(Icons.add),
       ),

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../widgets/custom_appbar.dart'; // Pastikan path benar
-import '../../services/api_service.dart'; // Import ApiService
+import '../../services/api_service.dart';
+import '../widgets/custom_appbar.dart';
 
 class ParkirPage extends StatefulWidget {
-  final String token; // Token wajib
+  final String token;
 
   const ParkirPage({super.key, required this.token});
 
@@ -12,269 +12,259 @@ class ParkirPage extends StatefulWidget {
 }
 
 class _ParkirPageState extends State<ParkirPage> {
-  List<dynamic> _daftarParkir = [];
+  // State
+  List<dynamic> _listSlot = [];
   bool _isLoading = true;
 
-  final TextEditingController nomorController = TextEditingController();
-  final TextEditingController lokasiController = TextEditingController();
-  String statusSelected = 'Tersedia';
+  // Controllers
+  final _nomorCtrl = TextEditingController();
+  final _lokasiCtrl = TextEditingController();
+  String _selectedStatus = 'Tersedia';
 
   @override
   void initState() {
     super.initState();
-    _fetchSlotParkir();
+    _fetchData();
+  }
+
+  // OPTIMISASI: Hapus controller dari memori
+  @override
+  void dispose() {
+    _nomorCtrl.dispose();
+    _lokasiCtrl.dispose();
+    super.dispose();
   }
 
   // =======================
-  // 1. GET DATA
+  // 1. DATA OPERATIONS (API)
   // =======================
-  Future<void> _fetchSlotParkir() async {
+  
+  Future<void> _fetchData() async {
     setState(() => _isLoading = true);
     try {
-      // PENTING: Tambahkan getSlotParkir di ApiService
       final data = await ApiService.getSlotParkir(widget.token);
       setState(() {
-        _daftarParkir = data;
+        _listSlot = data;
         _isLoading = false;
       });
     } catch (e) {
-      _showSnackBar("Gagal memuat data: $e");
+      _showMsg("Gagal memuat data");
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _submitForm({int? id}) async {
+    if (_nomorCtrl.text.isEmpty || _lokasiCtrl.text.isEmpty) {
+      _showMsg("Semua field wajib diisi");
+      return;
+    }
+
+    Navigator.pop(context); // Tutup dialog
+    setState(() => _isLoading = true);
+
+    Map<String, dynamic> data = {
+      "nomor_slot": _nomorCtrl.text,
+      "lokasi": _lokasiCtrl.text,
+      "status": _selectedStatus,
+    };
+
+    try {
+      final response = id == null
+          ? await ApiService.createSlotParkir(widget.token, data)
+          : await ApiService.updateSlotParkir(id, widget.token, data);
+
+      if (response['success'] == true) {
+        _showMsg(id == null ? "Slot ditambahkan" : "Data diperbarui");
+        _clearCtrl();
+        _fetchData();
+      } else {
+        _showMsg("Gagal: ${response['message']}");
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      _showMsg("Error: $e");
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _deleteData(int id) async {
+    Navigator.pop(context); // Tutup dialog
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await ApiService.deleteSlotParkir(id, widget.token);
+      if (response['success'] == true) {
+        _showMsg("Slot dihapus");
+        _fetchData();
+      } else {
+        _showMsg("Gagal menghapus");
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      _showMsg("Error: $e");
       setState(() => _isLoading = false);
     }
   }
 
   // =======================
-  // 2. TAMBAH DATA
+  // HELPER METHODS
   // =======================
-  Future<void> _tambahSlot() async {
-    Map<String, dynamic> data = {
-      "nomor_slot": nomorController.text,
-      "lokasi": lokasiController.text,
-      "status": statusSelected,
-    };
-
-    try {
-      // PENTING: Tambahkan createSlotParkir di ApiService
-      final response = await ApiService.createSlotParkir(widget.token, data);
-      
-      if (response['success'] == true) {
-        if (!mounted) return;
-        Navigator.pop(context);
-        _clearInput();
-        _showSnackBar("Slot parkir berhasil ditambahkan");
-        _fetchSlotParkir();
-      } else {
-        _showSnackBar("Gagal: ${response['message']}");
-      }
-    } catch (e) {
-      _showSnackBar("Error: $e");
-    }
+  void _clearCtrl() {
+    _nomorCtrl.clear();
+    _lokasiCtrl.clear();
+    _selectedStatus = 'Tersedia';
   }
 
-  // =======================
-  // 3. EDIT DATA
-  // =======================
-  Future<void> _updateSlot(int id) async {
-    Map<String, dynamic> data = {
-      "nomor_slot": nomorController.text,
-      "lokasi": lokasiController.text,
-      "status": statusSelected,
-    };
-
-    try {
-      // PENTING: Tambahkan updateSlotParkir di ApiService
-      final response = await ApiService.updateSlotParkir(id, widget.token, data);
-      
-      if (response['success'] == true) {
-        if (!mounted) return;
-        Navigator.pop(context);
-        _clearInput();
-        _showSnackBar("Slot parkir berhasil diperbarui");
-        _fetchSlotParkir();
-      } else {
-        _showSnackBar("Gagal: ${response['message']}");
-      }
-    } catch (e) {
-      _showSnackBar("Error: $e");
-    }
-  }
-
-  // =======================
-  // 4. HAPUS DATA
-  // =======================
-  Future<void> _hapusSlot(int id) async {
-    try {
-      // PENTING: Tambahkan deleteSlotParkir di ApiService
-      final response = await ApiService.deleteSlotParkir(id, widget.token);
-      
-      if (response['success'] == true) {
-        if (!mounted) return;
-        Navigator.pop(context); // Tutup dialog
-        _showSnackBar("Slot parkir berhasil dihapus");
-        _fetchSlotParkir();
-      } else {
-        _showSnackBar("Gagal menghapus: ${response['message']}");
-      }
-    } catch (e) {
-      _showSnackBar("Error: $e");
-    }
-  }
-
-  // =======================
-  // HELPER & UI
-  // =======================
-
-  void _clearInput() {
-    nomorController.clear();
-    lokasiController.clear();
-    statusSelected = 'Tersedia';
-  }
-
-  void _showSnackBar(String msg) {
+  void _showMsg(String msg) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
     );
   }
 
-  void _showForm({Map<String, dynamic>? slot}) {
-    bool isEdit = slot != null;
+  // =======================
+  // UI DIALOGS
+  // =======================
+  void _openForm({Map<String, dynamic>? item}) {
+    bool isEdit = item != null;
 
     if (isEdit) {
-      nomorController.text = slot['nomor_slot'] ?? '';
-      lokasiController.text = slot['lokasi'] ?? '';
-      statusSelected = slot['status'] ?? 'Tersedia';
+      _nomorCtrl.text = item['nomor_slot'] ?? '';
+      _lokasiCtrl.text = item['lokasi'] ?? '';
+      _selectedStatus = item['status'] ?? 'Tersedia';
     } else {
-      _clearInput();
+      _clearCtrl();
     }
 
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: Text(isEdit ? 'Edit Slot Parkir' : 'Tambah Slot Parkir'),
-        content: SingleChildScrollView(
-          child: Column(
+      builder: (ctx) => StatefulBuilder( // StatefulBuilder agar Dropdown update realtime
+        builder: (context, setStateModal) => AlertDialog(
+          title: Text(isEdit ? "Edit Slot" : "Tambah Slot"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(
-                controller: nomorController,
-                decoration: const InputDecoration(labelText: 'Nomor Slot'),
-              ),
+              _buildInput("Nomor Slot (Cth: A-1)", _nomorCtrl),
               const SizedBox(height: 12),
-              TextField(
-                controller: lokasiController,
-                decoration: const InputDecoration(labelText: 'Lokasi Parkir'),
-              ),
+              _buildInput("Lokasi (Cth: Lantai 1)", _lokasiCtrl),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                initialValue: statusSelected,
-                decoration: const InputDecoration(labelText: 'Status'),
+                value: _selectedStatus,
+                decoration: InputDecoration(
+                  labelText: 'Status',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  isDense: true,
+                ),
                 items: const [
                   DropdownMenuItem(value: 'Tersedia', child: Text('Tersedia')),
                   DropdownMenuItem(value: 'Terisi', child: Text('Terisi')),
                 ],
-                onChanged: (value) => setState(() => statusSelected = value!),
+                onChanged: (val) => setStateModal(() => _selectedStatus = val!),
               ),
             ],
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Batal"),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF5B2B9C)),
+              onPressed: () {
+                int? id = isEdit ? (item['id_parkir_slot'] ?? item['id']) : null;
+                _submitForm(id: id);
+              },
+              child: Text(isEdit ? "Update" : "Simpan", style: const TextStyle(color: Colors.white)),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF5B2B9C)),
-            onPressed: () {
-              if (isEdit) {
-                // Pastikan key ID sesuai database (misal: id_parkir_slot atau id)
-                int id = slot['id_parkir_slot'] ?? slot['id'];
-                _updateSlot(id);
-              } else {
-                _tambahSlot();
-              }
-            },
-            child: Text(isEdit ? 'Update' : 'Simpan', style: const TextStyle(color: Colors.white)),
-          ),
-        ],
       ),
     );
   }
 
-  void _showDeleteDialog(Map<String, dynamic> slot) {
+  void _openDeleteConfirm(Map<String, dynamic> item) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Hapus Slot Parkir'),
-        content: Text('Yakin ingin menghapus slot ${slot['nomor_slot']}?'),
+        title: const Text("Hapus Slot?"),
+        content: Text("Yakin ingin menghapus slot ${item['nomor_slot']}?"),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            onPressed: () {
-              int id = slot['id_parkir_slot'] ?? slot['id'];
-              _hapusSlot(id);
-            },
-            child: const Text('Hapus', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => _deleteData(item['id_parkir_slot'] ?? item['id']),
+            child: const Text("Hapus", style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
   }
 
+  Widget _buildInput(String label, TextEditingController ctrl) {
+    return TextField(
+      controller: ctrl,
+      decoration: InputDecoration(
+        labelText: label,
+        isDense: true,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
+  // =======================
+  // MAIN UI
+  // =======================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const CustomAppBar(title: 'Slot Parkir'),
-      body: _isLoading 
+      body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _daftarParkir.isEmpty
-              ? const Center(child: Text('Belum ada data slot parkir'))
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _daftarParkir.length,
-                  itemBuilder: (context, index) {
-                    final slot = _daftarParkir[index];
-                    String status = slot['status'] ?? 'Tersedia';
-                    bool isTerisi = status == 'Terisi';
+          : _listSlot.isEmpty
+              ? const Center(child: Text("Belum ada data slot parkir"))
+              : RefreshIndicator(
+                  onRefresh: _fetchData,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _listSlot.length,
+                    separatorBuilder: (ctx, i) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final slot = _listSlot[index];
+                      // Safe Mapping
+                      String no = slot['nomor_slot'] ?? '-';
+                      String loc = slot['lokasi'] ?? '-';
+                      String status = slot['status'] ?? 'Tersedia';
+                      bool isFull = status == 'Terisi';
 
-                    return Card(
-                      elevation: 3,
-                      margin: const EdgeInsets.only(bottom: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      child: ListTile(
-                        leading: Icon(
-                          isTerisi ? Icons.directions_car_filled : Icons.local_parking,
-                          color: isTerisi ? Colors.red : Colors.green,
-                          size: 32,
+                      return Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        child: ListTile(
+                          leading: Icon(
+                            isFull ? Icons.directions_car_filled : Icons.local_parking,
+                            color: isFull ? Colors.red : Colors.green,
+                            size: 32,
+                          ),
+                          title: Text("Slot $no", style: const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text("$loc • $status"),
+                          trailing: PopupMenuButton(
+                            onSelected: (val) => val == 'edit' 
+                                ? _openForm(item: slot) 
+                                : _openDeleteConfirm(slot),
+                            itemBuilder: (ctx) => [
+                              const PopupMenuItem(value: 'edit', child: Text("Edit")),
+                              const PopupMenuItem(value: 'del', child: Text("Hapus", style: TextStyle(color: Colors.red))),
+                            ],
+                          ),
                         ),
-                        title: Text(
-                          'Slot ${slot['nomor_slot'] ?? '-'}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Text('${slot['lokasi'] ?? '-'} • $status'),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.blue),
-                              onPressed: () => _showForm(slot: slot),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () => _showDeleteDialog(slot),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF5B2B9C),
-        onPressed: () => _showForm(),
         child: const Icon(Icons.add, color: Colors.white),
+        onPressed: () => _openForm(),
       ),
     );
   }

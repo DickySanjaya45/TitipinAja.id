@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../widgets/custom_appbar.dart'; // Pastikan widget ini ada
-import '../../services/api_service.dart'; // Import ApiService
+import '../widgets/custom_appbar.dart';
+import '../../services/api_service.dart';
 
 class PenggunaPage extends StatefulWidget {
-  final String token; // Token wajib diterima dari Dashboard
+  final String token;
 
   const PenggunaPage({super.key, required this.token});
 
@@ -12,294 +12,294 @@ class PenggunaPage extends StatefulWidget {
 }
 
 class _PenggunaPageState extends State<PenggunaPage> {
-  // Variabel State
-  List<dynamic> _daftarPengguna = [];
+  // State
+  List<dynamic> _listPengguna = [];
   bool _isLoading = true;
 
-  // Controller Form
-  final _namaLengkapController = TextEditingController();
-  final _alamatController = TextEditingController();
-  final _noTeleponController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
+  // Controllers
+  final _namaCtrl = TextEditingController();
+  final _alamatCtrl = TextEditingController();
+  final _telpCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _fetchPengguna(); // Ambil data saat halaman dibuka
+    _fetchData();
   }
 
-  // --- 1. GET DATA (READ via ApiService) ---
-  Future<void> _fetchPengguna() async {
+  // OPTIMISASI: Hapus controller dari memori
+  @override
+  void dispose() {
+    _namaCtrl.dispose();
+    _alamatCtrl.dispose();
+    _telpCtrl.dispose();
+    _emailCtrl.dispose();
+    _passCtrl.dispose();
+    super.dispose();
+  }
+
+  // =======================
+  // 1. DATA OPERATIONS (API)
+  // =======================
+  
+  Future<void> _fetchData() async {
     setState(() => _isLoading = true);
-    
     try {
-      // Panggil fungsi dari ApiService
       final data = await ApiService.getPengguna(widget.token);
-      
       setState(() {
-        _daftarPengguna = data; 
+        _listPengguna = data;
         _isLoading = false;
       });
     } catch (e) {
-      _showSnackBar('Gagal memuat data: $e');
+      _showMsg("Gagal memuat data");
       setState(() => _isLoading = false);
     }
   }
 
-  // --- 2. POST DATA (CREATE via ApiService) ---
-  Future<void> _simpanPengguna() async {
-    // Siapkan data
-    Map<String, dynamic> data = {
-      'nama_lengkap': _namaLengkapController.text,
-      'alamat': _alamatController.text,
-      'no_telepon': _noTeleponController.text,
-      'email': _emailController.text,
-      'password': _passwordController.text, // Wajib
-    };
-
-    try {
-      final response = await ApiService.createPengguna(widget.token, data);
-      if (!mounted) return;
-
-      if (response['success'] == true) {
-        _showSnackBar('Pengguna berhasil ditambahkan');
-        Navigator.pop(context); // Tutup dialog
-        _clearControllers();
-        _fetchPengguna(); // Refresh list
-      } else {
-        _showSnackBar('Gagal: ${response['message']}');
-      }
-    } catch (e) {
-      if (!mounted) return;
-      _showSnackBar('Error: $e');
+  Future<void> _submitForm({int? id}) async {
+    if (_namaCtrl.text.isEmpty || _emailCtrl.text.isEmpty) {
+      _showMsg("Nama dan Email wajib diisi");
+      return;
     }
-  }
 
-  // --- 3. PUT DATA (UPDATE via ApiService) ---
-  Future<void> _updatePengguna(int id) async {
-    // Siapkan data update
+    Navigator.pop(context); // Tutup dialog
+    setState(() => _isLoading = true);
+
     Map<String, dynamic> data = {
-      'nama_lengkap': _namaLengkapController.text,
-      'alamat': _alamatController.text,
-      'no_telepon': _noTeleponController.text,
-      'email': _emailController.text,
+      'nama_lengkap': _namaCtrl.text,
+      'alamat': _alamatCtrl.text,
+      'no_telepon': _telpCtrl.text,
+      'email': _emailCtrl.text,
     };
 
-    // Password hanya dikirim jika diisi
-    if (_passwordController.text.isNotEmpty) {
-      data['password'] = _passwordController.text;
+    // Password hanya dikirim jika diisi (untuk update) atau wajib (untuk create)
+    if (_passCtrl.text.isNotEmpty) {
+      data['password'] = _passCtrl.text;
     }
 
     try {
-      final response = await ApiService.updatePengguna(id, widget.token, data);
-      if (!mounted) return;
+      final response = id == null
+          ? await ApiService.createPengguna(widget.token, data)
+          : await ApiService.updatePengguna(id, widget.token, data);
 
       if (response['success'] == true) {
-        _showSnackBar('Pengguna berhasil diperbarui');
-        Navigator.pop(context);
-        _clearControllers();
-        _fetchPengguna();
+        _showMsg(id == null ? "Pengguna ditambahkan" : "Data diperbarui");
+        _clearCtrl();
+        _fetchData();
       } else {
-        _showSnackBar('Gagal update: ${response['message']}');
+        _showMsg("Gagal: ${response['message']}");
+        setState(() => _isLoading = false);
       }
     } catch (e) {
-      if (!mounted) return;
-      _showSnackBar('Error: $e');
+      _showMsg("Error: $e");
+      setState(() => _isLoading = false);
     }
   }
 
-  // --- 4. DELETE DATA (via ApiService) ---
-  Future<void> _hapusPenggunaAPI(int id) async {
+  Future<void> _deleteData(int id) async {
+    Navigator.pop(context); // Tutup dialog
+    setState(() => _isLoading = true);
+
     try {
       final response = await ApiService.deletePengguna(id, widget.token);
-      if (!mounted) return;
-
       if (response['success'] == true) {
-        _showSnackBar('Pengguna berhasil dihapus');
-        Navigator.pop(context); 
-        _fetchPengguna(); 
+        _showMsg("Pengguna dihapus");
+        _fetchData();
       } else {
-        _showSnackBar('Gagal menghapus: ${response['message']}');
+        _showMsg("Gagal menghapus");
+        setState(() => _isLoading = false);
       }
     } catch (e) {
-      if (!mounted) return;
-      _showSnackBar('Error: $e');
+      _showMsg("Error: $e");
+      setState(() => _isLoading = false);
     }
   }
 
-  // --- HELPER FUNCTIONS ---
-  void _clearControllers() {
-    _namaLengkapController.clear();
-    _alamatController.clear();
-    _noTeleponController.clear();
-    _emailController.clear();
-    _passwordController.clear();
+  // =======================
+  // HELPER METHODS
+  // =======================
+  void _clearCtrl() {
+    _namaCtrl.clear();
+    _alamatCtrl.clear();
+    _telpCtrl.clear();
+    _emailCtrl.clear();
+    _passCtrl.clear();
   }
 
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  void _showMsg(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
+    );
   }
 
-  // --- UI DIALOGS ---
-  void _showFormDialog({Map<String, dynamic>? pengguna}) {
-    bool isEdit = pengguna != null;
-    
+  // =======================
+  // UI DIALOGS
+  // =======================
+  void _openForm({Map<String, dynamic>? item}) {
+    bool isEdit = item != null;
+
     if (isEdit) {
-      _namaLengkapController.text = pengguna['nama_lengkap'] ?? '';
-      _alamatController.text = pengguna['alamat'] ?? '';
-      _noTeleponController.text = pengguna['no_telepon'] ?? '';
-      _emailController.text = pengguna['email'] ?? '';
-      _passwordController.clear();
+      _namaCtrl.text = item['nama_lengkap'] ?? '';
+      _alamatCtrl.text = item['alamat'] ?? '';
+      _telpCtrl.text = item['no_telepon'] ?? '';
+      _emailCtrl.text = item['email'] ?? '';
+      _passCtrl.clear();
     } else {
-      _clearControllers();
+      _clearCtrl();
     }
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(isEdit ? 'Edit Pengguna' : 'Tambah Pengguna'),
+      builder: (_) => AlertDialog(
+        title: Text(isEdit ? "Edit Pengguna" : "Tambah Pengguna"),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(
-                controller: _namaLengkapController,
-                decoration: const InputDecoration(labelText: 'Nama Lengkap'),
-              ),
-              TextField(
-                controller: _alamatController,
-                decoration: const InputDecoration(labelText: 'Alamat'),
-                maxLines: 2,
-              ),
-              TextField(
-                controller: _noTeleponController,
-                decoration: const InputDecoration(labelText: 'No. Telepon'),
-                keyboardType: TextInputType.phone,
-              ),
-              TextField(
-                controller: _emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              TextField(
-                controller: _passwordController,
-                decoration: InputDecoration(
-                  labelText: isEdit ? 'Password (Kosongkan jika tetap)' : 'Password',
-                ),
-                obscureText: true,
+              _buildInput("Nama Lengkap", _namaCtrl),
+              const SizedBox(height: 12),
+              _buildInput("Email", _emailCtrl, isEmail: true),
+              const SizedBox(height: 12),
+              _buildInput("No. Telepon", _telpCtrl, isNumber: true),
+              const SizedBox(height: 12),
+              _buildInput("Alamat", _alamatCtrl, maxLines: 2),
+              const SizedBox(height: 12),
+              _buildInput(
+                isEdit ? "Password (Kosongkan jika tetap)" : "Password", 
+                _passCtrl, 
+                isPass: true
               ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Batal"),
+          ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF5B2B9C)),
             onPressed: () {
-              if (isEdit) {
-                // Pastikan key ID sesuai database (id_pengguna)
-                int id = pengguna['id_pengguna'] ?? pengguna['id'];
-                _updatePengguna(id); 
-              } else {
-                _simpanPengguna();
-              }
+              int? id = isEdit ? (item['id_pengguna'] ?? item['id']) : null;
+              _submitForm(id: id);
             },
-            child: Text(isEdit ? 'Update' : 'Simpan'),
+            child: Text(isEdit ? "Update" : "Simpan", style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
   }
 
-  void _showDeleteDialog(Map<String, dynamic> pengguna) {
+  void _openDeleteConfirm(Map<String, dynamic> item) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Hapus Pengguna'),
-        content: Text('Yakin ingin menghapus "${pengguna['nama_lengkap']}"?'),
+      builder: (_) => AlertDialog(
+        title: const Text("Hapus Pengguna?"),
+        content: Text("Yakin ingin menghapus ${item['nama_lengkap']}?"),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () {
-              int id = pengguna['id_pengguna'] ?? pengguna['id'];
-              _hapusPenggunaAPI(id);
-            },
-            child: const Text('Hapus', style: TextStyle(color: Colors.white)),
+            onPressed: () => _deleteData(item['id_pengguna'] ?? item['id']),
+            child: const Text("Hapus", style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
   }
 
-  void _lihatDetail(Map<String, dynamic> pengguna) {
+  void _showDetail(Map<String, dynamic> item) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(pengguna['nama_lengkap'] ?? 'Detail'),
+      builder: (_) => AlertDialog(
+        title: Text(item['nama_lengkap'] ?? 'Detail'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('ID: ${pengguna['id_pengguna'] ?? pengguna['id']}'),
-            const SizedBox(height: 5),
-            Text('Email: ${pengguna['email']}'),
-            const SizedBox(height: 5),
-            Text('No. Telp: ${pengguna['no_telepon']}'),
-            const SizedBox(height: 5),
-            Text('Alamat: ${pengguna['alamat']}'),
+            Text("ID: ${item['id_pengguna'] ?? item['id']}"),
+            const SizedBox(height: 8),
+            Text("Email: ${item['email']}"),
+            const SizedBox(height: 8),
+            Text("Telp: ${item['no_telepon']}"),
+            const SizedBox(height: 8),
+            Text("Alamat: ${item['alamat']}"),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Tutup')),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Tutup")),
         ],
       ),
     );
   }
 
+  Widget _buildInput(String label, TextEditingController ctrl, {bool isNumber = false, bool isEmail = false, bool isPass = false, int maxLines = 1}) {
+    return TextField(
+      controller: ctrl,
+      keyboardType: isNumber ? TextInputType.phone : (isEmail ? TextInputType.emailAddress : TextInputType.text),
+      obscureText: isPass,
+      maxLines: maxLines,
+      decoration: InputDecoration(
+        labelText: label,
+        isDense: true,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
+  // =======================
+  // MAIN UI
+  // =======================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Pastikan Anda punya widget CustomAppBar, kalau tidak ganti AppBar biasa
       appBar: const CustomAppBar(title: 'Data Pengguna'),
-      
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _daftarPengguna.isEmpty
-              ? const Center(child: Text('Belum ada data pengguna'))
-              : ListView.builder(
-                  itemCount: _daftarPengguna.length,
-                  itemBuilder: (context, index) {
-                    final pengguna = _daftarPengguna[index];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          child: Text((pengguna['nama_lengkap']?[0] ?? '?').toUpperCase()),
+          : _listPengguna.isEmpty
+              ? const Center(child: Text("Belum ada data pengguna"))
+              : RefreshIndicator(
+                  onRefresh: _fetchData,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: _listPengguna.length,
+                    separatorBuilder: (ctx, i) => const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      final item = _listPengguna[index];
+                      // Safe Mapping
+                      String name = item['nama_lengkap'] ?? '-';
+                      String email = item['email'] ?? '-';
+                      String initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+
+                      return Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        child: ListTile(
+                          leading: CircleAvatar(child: Text(initial)),
+                          title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text(email),
+                          onTap: () => _showDetail(item),
+                          trailing: PopupMenuButton(
+                            onSelected: (val) => val == 'edit' 
+                                ? _openForm(item: item) 
+                                : _openDeleteConfirm(item),
+                            itemBuilder: (ctx) => [
+                              const PopupMenuItem(value: 'edit', child: Text("Edit")),
+                              const PopupMenuItem(value: 'del', child: Text("Hapus", style: TextStyle(color: Colors.red))),
+                            ],
+                          ),
                         ),
-                        title: Text(pengguna['nama_lengkap'] ?? '-'),
-                        subtitle: Text('${pengguna['email']}'),
-                        onTap: () => _lihatDetail(pengguna),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.blue),
-                              onPressed: () => _showFormDialog(pengguna: pengguna),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () => _showDeleteDialog(pengguna),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showFormDialog(),
-        child: const Icon(Icons.add),
+        backgroundColor: const Color(0xFF5B2B9C),
+        child: const Icon(Icons.add, color: Colors.white),
+        onPressed: () => _openForm(),
       ),
     );
   }
