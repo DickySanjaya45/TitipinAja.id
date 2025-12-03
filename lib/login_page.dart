@@ -30,6 +30,7 @@ class _LoginPageState extends State<LoginPage> {
 
     setState(() => _isLoading = true);
     await Future.delayed(const Duration(milliseconds: 300)); // Simulasi singkat
+    if (!mounted) return;
     setState(() => _isLoading = false);
 
     if (selectedRole == "Admin") {
