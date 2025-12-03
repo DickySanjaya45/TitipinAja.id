@@ -1,8 +1,11 @@
 import 'dart:ui'; // Diperlukan untuk BackdropFilter
 import 'package:flutter/material.dart';
-import 'dashboard/dashboard_admin.dart';
-import 'dashboard/dashboard_user.dart';
-import 'pages/register_page.dart';
+
+// --- IMPORT FILE API & DASHBOARD ---
+import '../services/api_service.dart'; 
+import '../dashboard/dashboard_admin.dart';
+import '../dashboard/dashboard_user.dart';
+import 'register_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -14,46 +17,91 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  
   bool _obscurePassword = true;
   bool _isLoading = false;
+  
+  // Default pilihan UI (Huruf Kapital)
   String selectedRole = "User";
 
-  void _login() async {
-    // Logika Login (Sama seperti sebelumnya)
+  // --- FUNGSI LOGIN UTAMA ---
+  Future<void> _login() async {
     String email = emailController.text.trim();
     String password = passwordController.text.trim();
 
+    // 1. Validasi Input Kosong
     if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Isi semua data')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Email dan Password wajib diisi'),
+          backgroundColor: Colors.red,
+        ),
+      );
       return;
     }
 
+    // 2. Set Loading
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 300)); // Simulasi singkat
-    setState(() => _isLoading = false);
 
-    if (selectedRole == "Admin") {
-      if (email == 'admin@gmail.com' && password == '12345') {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => DashboardAdmin(
-              token: 'dummy_token',
-              adminData: {'nama_petugas': 'Administrator', 'email': email},
+    try {
+      // 3. Konversi Role UI ("Admin") ke Role API ("admin")
+      // Backend Laravel mewajibkan huruf kecil ('admin' atau 'user')
+      String apiRole = selectedRole.toLowerCase();
+
+      // 4. Panggil API Service
+      final response = await ApiService.login(email, password, apiRole);
+
+      // Matikan Loading
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+
+      // 5. Cek Response
+      if (response['success'] == true) {
+        // --- LOGIN SUKSES ---
+        String token = response['token'];
+        String returnedRole = response['role']; // Role dari database
+        Map<String, dynamic> userData = response['data']; // Data profil user/admin
+
+        if (returnedRole == 'admin') {
+          // Masuk ke Dashboard Admin
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DashboardAdmin(
+                token: token, 
+                adminData: userData
+              ),
             ),
+          );
+        } else {
+          // Masuk ke Dashboard User
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DashboardUser(
+                token: token,
+                userData: userData,
+              ),
+            ),
+          );
+        }
+      } else {
+        // --- LOGIN GAGAL (Password Salah / Email tidak ada) ---
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(response['message'] ?? 'Login Gagal'),
+            backgroundColor: Colors.red,
           ),
         );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Login Gagal')));
       }
-    } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => DashboardUser(
-            userData: {'username': email.split('@')[0], 'email': email},
-            token: 'dummy',
-          ),
+    } catch (e) {
+      // --- ERROR KONEKSI ---
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Terjadi kesalahan: $e"),
+          backgroundColor: Colors.red,
         ),
       );
     }
@@ -92,7 +140,7 @@ class _LoginPageState extends State<LoginPage> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(30),
                 child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5), // Reduced blur for performance
+                  filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5), // Reduced from 10 for better performance
                   child: Container(
                     padding: const EdgeInsets.all(32),
                     decoration: BoxDecoration(
@@ -139,11 +187,12 @@ class _LoginPageState extends State<LoginPage> {
                         const SizedBox(height: 32),
 
                         // Form Fields
-                        _buildRoleSelector(),
+                        _buildRoleSelector(), // Pilihan Admin / User
                         const SizedBox(height: 16),
                         
                         TextField(
                           controller: emailController,
+                          keyboardType: TextInputType.emailAddress,
                           decoration: const InputDecoration(
                             labelText: "Email Address",
                             prefixIcon: Icon(Icons.email_outlined),
@@ -243,7 +292,7 @@ class _LoginPageState extends State<LoginPage> {
                 decoration: BoxDecoration(
                   color: isSelected ? Colors.white : Colors.transparent,
                   borderRadius: BorderRadius.circular(10),
-                    boxShadow: isSelected
+                  boxShadow: isSelected
                       ? [BoxShadow(color: Colors.black.withAlpha((0.05 * 255).round()), blurRadius: 4, spreadRadius: 1)]
                       : [],
                 ),

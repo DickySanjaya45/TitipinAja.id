@@ -1,37 +1,168 @@
 import 'package:flutter/material.dart';
-import '../widgets/custom_appbar.dart';
+import '../widgets/custom_appbar.dart'; // Pastikan path benar
+import '../../services/api_service.dart'; // Import ApiService
 
 class PembayaranPage extends StatefulWidget {
-  const PembayaranPage({super.key});
+  final String token; // Token wajib
+
+  const PembayaranPage({super.key, required this.token});
 
   @override
   State<PembayaranPage> createState() => _PembayaranPageState();
 }
 
 class _PembayaranPageState extends State<PembayaranPage> {
-  // Data dummy pembayaran
-  List<Map<String, dynamic>> daftarPembayaran = [
-    {'id': 1, 'nama': 'Dicky', 'jumlah': 25000, 'tanggal': '2025-10-30'},
-    {'id': 2, 'nama': 'Alfina', 'jumlah': 40000, 'tanggal': '2025-10-31'},
-  ];
+  // State
+  List<dynamic> _daftarPembayaran = [];
+  bool _isLoading = true;
 
-  // Controller form
-  final _namaController = TextEditingController();
-  final _jumlahController = TextEditingController();
-  final _tanggalController = TextEditingController();
+  // Controller
+  final _namaController = TextEditingController(); // Bisa jadi Keterangan / Nama Pelanggan
+  final _jumlahController = TextEditingController(); // Total Biaya
+  final _tanggalController = TextEditingController(); 
 
-  // Menambahkan data baru
-  void _tambahPembayaran() {
+  @override
+  void initState() {
+    super.initState();
+    _fetchPembayaran();
+  }
+
+  // =======================
+  // 1. GET DATA (READ)
+  // =======================
+  Future<void> _fetchPembayaran() async {
+    setState(() => _isLoading = true);
+    try {
+      // Menggunakan endpoint Transaksi
+      final data = await ApiService.getTransaksi(widget.token);
+      setState(() {
+        _daftarPembayaran = data;
+        _isLoading = false;
+      });
+    } catch (e) {
+      _showSnackBar("Gagal mengambil data: $e");
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // =======================
+  // 2. TAMBAH DATA (CREATE)
+  // =======================
+  Future<void> _tambahPembayaran() async {
+    // Siapkan data sesuai kolom database Anda
+    // Pastikan key JSON ('nama', 'total_biaya', dll) sesuai dengan Controller Laravel Anda
+    Map<String, dynamic> data = {
+      'nama_pelanggan': _namaController.text, // Sesuaikan dengan DB
+      'total_biaya': int.tryParse(_jumlahController.text) ?? 0,
+      'tanggal_transaksi': _tanggalController.text, // Format YYYY-MM-DD
+    };
+
+    try {
+      // PENTING: Pastikan Anda menambahkan method createTransaksi di ApiService
+      final response = await ApiService.createTransaksi(widget.token, data);
+
+      if (response['success'] == true) {
+        _showSnackBar("Pembayaran berhasil disimpan");
+        if (!mounted) return;
+        Navigator.pop(context);
+        _clearControllers();
+        _fetchPembayaran();
+      } else {
+        _showSnackBar("Gagal: ${response['message']}");
+      }
+    } catch (e) {
+      _showSnackBar("Error: $e");
+    }
+  }
+
+  // =======================
+  // 3. EDIT DATA (UPDATE)
+  // =======================
+  Future<void> _updatePembayaran(int id) async {
+    Map<String, dynamic> data = {
+      'nama_pelanggan': _namaController.text,
+      'total_biaya': int.tryParse(_jumlahController.text) ?? 0,
+      'tanggal_transaksi': _tanggalController.text,
+    };
+
+    try {
+      // PENTING: Pastikan Anda menambahkan method updateTransaksi di ApiService
+      final response = await ApiService.updateTransaksi(id, widget.token, data);
+
+      if (response['success'] == true) {
+        _showSnackBar("Data berhasil diperbarui");
+        if (!mounted) return;
+        Navigator.pop(context);
+        _clearControllers();
+        _fetchPembayaran();
+      } else {
+        _showSnackBar("Gagal: ${response['message']}");
+      }
+    } catch (e) {
+      _showSnackBar("Error: $e");
+    }
+  }
+
+  // =======================
+  // 4. HAPUS DATA (DELETE)
+  // =======================
+  Future<void> _hapusPembayaran(int id) async {
+    try {
+      // PENTING: Pastikan Anda menambahkan method deleteTransaksi di ApiService
+      final response = await ApiService.deleteTransaksi(id, widget.token);
+
+      if (response['success'] == true) {
+        _showSnackBar("Data berhasil dihapus");
+        if (!mounted) return;
+        Navigator.pop(context);
+        _fetchPembayaran();
+      } else {
+        _showSnackBar("Gagal menghapus: ${response['message']}");
+      }
+    } catch (e) {
+      _showSnackBar("Error: $e");
+    }
+  }
+
+  // =======================
+  // HELPER & UI
+  // =======================
+
+  void _clearControllers() {
+    _namaController.clear();
+    _jumlahController.clear();
+    _tanggalController.clear();
+  }
+
+  void _showSnackBar(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  // Dialog Form
+  void _showFormDialog({Map<String, dynamic>? item}) {
+    bool isEdit = item != null;
+
+    if (isEdit) {
+      // Sesuaikan key dengan respon API
+      _namaController.text = item['nama_pelanggan'] ?? item['nama'] ?? '';
+      _jumlahController.text = (item['total_biaya'] ?? item['jumlah'] ?? 0).toString();
+      _tanggalController.text = item['tanggal_transaksi'] ?? item['tanggal'] ?? '';
+    } else {
+      _clearControllers();
+      // Auto set tanggal hari ini
+      _tanggalController.text = DateTime.now().toString().split(' ')[0];
+    }
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Tambah Pembayaran'),
+        title: Text(isEdit ? 'Edit Pembayaran' : 'Tambah Pembayaran'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: _namaController,
-              decoration: const InputDecoration(labelText: 'Nama'),
+              decoration: const InputDecoration(labelText: 'Nama Pelanggan / Keterangan'),
             ),
             TextField(
               controller: _jumlahController,
@@ -40,110 +171,16 @@ class _PembayaranPageState extends State<PembayaranPage> {
             ),
             TextField(
               controller: _tanggalController,
-              decoration: const InputDecoration(labelText: 'Tanggal (YYYY-MM-DD)'),
+              decoration: const InputDecoration(
+                labelText: 'Tanggal (YYYY-MM-DD)',
+                hintText: '2025-10-30'
+              ),
+              onTap: () async {
+                 // Opsional: Tambahkan DatePicker di sini
+              },
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              _namaController.clear();
-              _jumlahController.clear();
-              _tanggalController.clear();
-              Navigator.pop(context);
-            },
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                daftarPembayaran.add({
-                  'id': DateTime.now().millisecondsSinceEpoch,
-                  'nama': _namaController.text,
-                  'jumlah': int.tryParse(_jumlahController.text) ?? 0,
-                  'tanggal': _tanggalController.text,
-                });
-              });
-              _namaController.clear();
-              _jumlahController.clear();
-              _tanggalController.clear();
-              Navigator.pop(context);
-            },
-            child: const Text('Simpan'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Edit data
-  void _editPembayaran(int index) {
-    final pembayaran = daftarPembayaran[index];
-    _namaController.text = pembayaran['nama'];
-    _jumlahController.text = pembayaran['jumlah'].toString();
-    _tanggalController.text = pembayaran['tanggal'];
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Pembayaran'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _namaController,
-              decoration: const InputDecoration(labelText: 'Nama'),
-            ),
-            TextField(
-              controller: _jumlahController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Jumlah (Rp)'),
-            ),
-            TextField(
-              controller: _tanggalController,
-              decoration: const InputDecoration(labelText: 'Tanggal (YYYY-MM-DD)'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              _namaController.clear();
-              _jumlahController.clear();
-              _tanggalController.clear();
-              Navigator.pop(context);
-            },
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                daftarPembayaran[index] = {
-                  'id': pembayaran['id'],
-                  'nama': _namaController.text,
-                  'jumlah': int.tryParse(_jumlahController.text) ?? 0,
-                  'tanggal': _tanggalController.text,
-                };
-              });
-              _namaController.clear();
-              _jumlahController.clear();
-              _tanggalController.clear();
-              Navigator.pop(context);
-            },
-            child: const Text('Update'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Hapus data
-  void _hapusPembayaran(int index) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Hapus Pembayaran'),
-        content: Text('Yakin ingin menghapus pembayaran "${daftarPembayaran[index]['nama']}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -151,12 +188,39 @@ class _PembayaranPageState extends State<PembayaranPage> {
           ),
           ElevatedButton(
             onPressed: () {
-              setState(() {
-                daftarPembayaran.removeAt(index);
-              });
-              Navigator.pop(context);
+              if (isEdit) {
+                int id = item['id_transaksi'] ?? item['id'];
+                _updatePembayaran(id);
+              } else {
+                _tambahPembayaran();
+              }
             },
-            child: const Text('Hapus'),
+            child: Text(isEdit ? 'Update' : 'Simpan'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Dialog Hapus
+  void _showDeleteDialog(Map<String, dynamic> item) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hapus Pembayaran'),
+        content: Text('Hapus data senilai Rp ${item['total_biaya'] ?? item['jumlah']}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              int id = item['id_transaksi'] ?? item['id'];
+              _hapusPembayaran(id);
+            },
+            child: const Text('Hapus', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -167,36 +231,48 @@ class _PembayaranPageState extends State<PembayaranPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const CustomAppBar(title: 'Pembayaran'),
-      body: daftarPembayaran.isEmpty
-          ? const Center(child: Text('Belum ada data pembayaran'))
-          : ListView.builder(
-              itemCount: daftarPembayaran.length,
-              itemBuilder: (context, index) {
-                final data = daftarPembayaran[index];
-                return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  child: ListTile(
-                    title: Text('${data['nama']} - Rp ${data['jumlah']}'),
-                    subtitle: Text('Tanggal: ${data['tanggal']}'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit, color: Colors.blue),
-                          onPressed: () => _editPembayaran(index),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _daftarPembayaran.isEmpty
+              ? const Center(child: Text('Belum ada data pembayaran'))
+              : ListView.builder(
+                  itemCount: _daftarPembayaran.length,
+                  itemBuilder: (context, index) {
+                    final data = _daftarPembayaran[index];
+                    
+                    // Mapping data agar aman
+                    String nama = data['nama_pelanggan'] ?? data['nama'] ?? '-';
+                    String jumlah = (data['total_biaya'] ?? data['jumlah'] ?? 0).toString();
+                    String tanggal = data['tanggal_transaksi'] ?? data['tanggal'] ?? '-';
+
+                    return Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      child: ListTile(
+                        leading: const CircleAvatar(
+                          backgroundColor: Colors.green,
+                          child: Icon(Icons.attach_money, color: Colors.white),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _hapusPembayaran(index),
+                        title: Text('Rp $jumlah'),
+                        subtitle: Text('$nama • $tanggal'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: Colors.blue),
+                              onPressed: () => _showFormDialog(item: data),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () => _showDeleteDialog(data),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
+                      ),
+                    );
+                  },
+                ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _tambahPembayaran,
+        onPressed: () => _showFormDialog(),
         child: const Icon(Icons.add),
       ),
     );

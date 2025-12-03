@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'login_page.dart';
+import 'pages/login_page.dart';
 import 'dashboard/dashboard_user.dart';
 import 'dashboard/dashboard_admin.dart';
 
@@ -33,7 +33,6 @@ class TitipinAjaApp extends StatelessWidget {
           primary: const Color(0xFF6C63FF),
           secondary: const Color(0xFF00C897), // Soft Teal Accent
           surface: Colors.white,
-          background: const Color(0xFFF5F7FA),
         ),
 
         // Style Input Global (Clean & Soft)
@@ -63,7 +62,7 @@ class TitipinAjaApp extends StatelessWidget {
             backgroundColor: const Color(0xFF6C63FF),
             foregroundColor: Colors.white,
             elevation: 8,
-            shadowColor: const Color(0xFF6C63FF).withOpacity(0.4),
+            shadowColor: Color(0xFF6C63FF).withAlpha((0.4 * 255).round()),
             padding: const EdgeInsets.symmetric(vertical: 18),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
@@ -81,7 +80,7 @@ class TitipinAjaApp extends StatelessWidget {
       initialRoute: '/login',
       routes: {
         '/login': (context) => const LoginPage(),
-        '/dashboard_admin': (context) => const DashboardAdmin(),
+        '/dashboard_admin': (context) => const DashboardAdmin(adminData: {}, token: ''),
       },
       onGenerateRoute: (settings) {
         if (settings.name == '/dashboard_user') {

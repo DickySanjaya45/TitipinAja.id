@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../services/api_service.dart'; // Import ApiService
+import '../pages/login_page.dart'; // Import halaman Login
+
+// Import halaman anak
 import 'page_motor_saya.dart';
 import 'page_member.dart';
 import 'page_pembayaran.dart';
@@ -8,7 +12,11 @@ class DashboardUser extends StatefulWidget {
   final Map<String, dynamic> userData;
   final String token;
 
-  const DashboardUser({super.key, required this.userData, required this.token});
+  const DashboardUser({
+    super.key, 
+    required this.userData, 
+    required this.token
+  });
 
   @override
   State<DashboardUser> createState() => _DashboardUserState();
@@ -16,26 +24,49 @@ class DashboardUser extends StatefulWidget {
 
 class _DashboardUserState extends State<DashboardUser> {
   int _selectedIndex = 0;
+  bool _isLoggingOut = false;
 
-  final List<Widget> _pages = const [
-    PageTransaksiAktif(),
-    PageMotorSaya(),
-    PageMember(),
-    PagePembayaran(),
-  ];
+  // --- LOGOUT LOGIC ---
+  Future<void> _logout() async {
+    // Tampilkan loading dialog atau indikator
+    setState(() => _isLoggingOut = true);
+
+    await ApiService.logout(widget.token);
+
+    if (!mounted) return;
+
+    // Kembali ke halaman login & hapus semua history
+    Navigator.pushAndRemoveUntil(
+      context, 
+      MaterialPageRoute(builder: (context) => const LoginPage()), 
+      (route) => false
+    );
+  }
+
+  // --- MENU CONTENT ---
+  Widget _buildContent() {
+    // Kirim Token & UserData ke halaman anak agar bisa akses API
+    switch (_selectedIndex) {
+      case 0: 
+        return _buildHomeUI(widget.userData, Theme.of(context).colorScheme);
+      case 1: 
+        return PageMotorSaya(token: widget.token, userData: widget.userData);
+      case 2: 
+        // Pastikan PageMember punya konstruktor token
+        return PageMember(token: widget.token, userData: widget.userData); 
+      case 3: 
+        // Pastikan PagePembayaran punya konstruktor token
+        return PagePembayaran(token: widget.token); 
+      default: 
+        return const SizedBox();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Warna dari tema
-    final colorScheme = Theme.of(context).colorScheme;
-    final username = widget.userData['username'] ?? 'User';
-
     return Scaffold(
-      // Body dengan content changer
-      body: _selectedIndex == 0
-          ? _buildHomeUI(username, colorScheme) // Home Custom UI
-          : _pages[_selectedIndex - 1], // Halaman Menu Lain
-      // Custom Floating Bottom Navigation
+      body: _buildContent(), // Gunakan helper function untuk ganti halaman
+      
       bottomNavigationBar: Container(
         margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
         height: 70,
@@ -44,7 +75,7 @@ class _DashboardUserState extends State<DashboardUser> {
           borderRadius: BorderRadius.circular(25),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: Colors.black.withAlpha((0.08 * 255).round()),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -53,25 +84,10 @@ class _DashboardUserState extends State<DashboardUser> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _buildNavItem(0, Icons.home_rounded, "Home", colorScheme.primary),
-            _buildNavItem(
-              1,
-              Icons.two_wheeler_rounded,
-              "Motor",
-              colorScheme.primary,
-            ),
-            _buildNavItem(
-              2,
-              Icons.card_membership_rounded,
-              "Member",
-              colorScheme.primary,
-            ),
-            _buildNavItem(
-              3,
-              Icons.account_balance_wallet_rounded,
-              "Bayar",
-              colorScheme.primary,
-            ),
+            _buildNavItem(0, Icons.home_rounded, "Home", Theme.of(context).primaryColor),
+            _buildNavItem(1, Icons.two_wheeler_rounded, "Motor", Theme.of(context).primaryColor),
+            _buildNavItem(2, Icons.card_membership_rounded, "Member", Theme.of(context).primaryColor),
+            _buildNavItem(3, Icons.history_rounded, "Riwayat", Theme.of(context).primaryColor), // Ganti Bayar jadi Riwayat/Bayar
           ],
         ),
       ),
@@ -79,12 +95,15 @@ class _DashboardUserState extends State<DashboardUser> {
   }
 
   // UI Khusus Halaman Utama Dashboard
-  Widget _buildHomeUI(String username, ColorScheme colors) {
+  Widget _buildHomeUI(Map<String, dynamic> user, ColorScheme colors) {
+    // Ambil nama user dengan aman
+    String username = user['nama_lengkap'] ?? user['username'] ?? 'User';
+
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1. HEADER SECTION (Gradient & Info)
+          // 1. HEADER SECTION
           Container(
             padding: const EdgeInsets.fromLTRB(24, 60, 24, 30),
             decoration: BoxDecoration(
@@ -121,80 +140,32 @@ class _DashboardUserState extends State<DashboardUser> {
                         ),
                       ],
                     ),
-                    // Profile / Logout Button
+                    // Logout Button
                     GestureDetector(
-                      onTap: _logout,
+                      onTap: _isLoggingOut ? null : _logout,
                       child: Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withAlpha((0.2 * 255).round()),
                           borderRadius: BorderRadius.circular(15),
                         ),
-                        child: const Icon(
-                          Icons.logout_rounded,
-                          color: Colors.white,
-                        ),
+                        child: _isLoggingOut 
+                          ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Icon(Icons.logout_rounded, color: Colors.white),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 30),
 
-                // Status Card (Floating)
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
+                // Widget Status Parkir Aktif (Panggil Halaman Khusus)
+                // Kita bungkus PageTransaksiAktif agar tampil rapi di header
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 15,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE5FAFB),
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        child: const Icon(
-                          Icons.local_parking,
-                          color: Color(0xFF00C897),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "Status Kendaraan",
-                            style: TextStyle(color: Colors.grey, fontSize: 12),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            "Honda Vario 125",
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          Text(
-                            "Slot A-12 • Masuk 08:00 WIB",
-                            style: TextStyle(
-                              color: colors.primary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                    // Kirim token ke widget status parkir
+                    child: PageTransaksiAktif(token: widget.token), 
                   ),
                 ),
               ],
@@ -239,14 +210,23 @@ class _DashboardUserState extends State<DashboardUser> {
                       Icons.history_rounded,
                       Colors.purple.shade50,
                       Colors.purple,
-                      () {}, // Tambahkan navigasi
+                      () {
+                         // Navigasi ke halaman riwayat (jika ada)
+                         // Navigator.push(context, MaterialPageRoute(...));
+                      },
                     ),
                     _buildFeatureCard(
                       "Bantuan",
                       Icons.support_agent_rounded,
                       Colors.green.shade50,
                       Colors.green,
-                      () {},
+                      () {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("Fitur Bantuan segera hadir!")),
+                          );
+                        }
+                      },
                     ),
                   ],
                 ),
@@ -258,21 +238,16 @@ class _DashboardUserState extends State<DashboardUser> {
     );
   }
 
-  // Helper Widget: Item Navigasi Bawah dengan Animasi
-  Widget _buildNavItem(
-    int index,
-    IconData icon,
-    String label,
-    Color activeColor,
-  ) {
+  // Helper Widget: Item Navigasi Bawah
+  Widget _buildNavItem(int index, IconData icon, String label, Color activeColor) {
     bool isSelected = _selectedIndex == index;
     return GestureDetector(
       onTap: () => setState(() => _selectedIndex = index),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? activeColor.withOpacity(0.1) : Colors.transparent,
+          decoration: BoxDecoration(
+          color: isSelected ? activeColor.withAlpha((0.1 * 255).round()) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -300,14 +275,8 @@ class _DashboardUserState extends State<DashboardUser> {
     );
   }
 
-  // Helper Widget: Kartu Fitur di Home
-  Widget _buildFeatureCard(
-    String title,
-    IconData icon,
-    Color bgColor,
-    Color iconColor,
-    VoidCallback onTap,
-  ) {
+  // Helper Widget: Kartu Fitur
+  Widget _buildFeatureCard(String title, IconData icon, Color bgColor, Color iconColor, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -315,9 +284,9 @@ class _DashboardUserState extends State<DashboardUser> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: Colors.grey.shade100),
-          boxShadow: [
+            boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Colors.black.withAlpha((0.03 * 255).round()),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -340,11 +309,5 @@ class _DashboardUserState extends State<DashboardUser> {
         ),
       ),
     );
-  }
-
-  void _logout() {
-    // Logika logout
-    Navigator.pop(context);
-    Navigator.pushReplacementNamed(context, '/login');
   }
 }
