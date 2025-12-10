@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 // --- IMPORTS ---
 import '../services/api_service.dart';
 import '../dashboard/dashboard_admin.dart';
-import '../dashboard/dashboard_user.dart';
 import 'register_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -76,7 +75,7 @@ class _LoginPageState extends State<LoginPage> {
     // Routing berdasarkan Role
     Widget page = (role == 'admin')
         ? DashboardAdmin(token: token, adminData: userData)
-        : DashboardUser(token: token, userData: userData);
+        : DashboardAdmin(token: token, adminData: userData);
 
     Navigator.pushReplacement(
       context,
