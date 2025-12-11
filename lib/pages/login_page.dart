@@ -10,15 +10,15 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final _emailCtrl = TextEditingController();
+  final _usernameCtrl = TextEditingController(); // Ganti email jadi username
   final _passCtrl = TextEditingController();
   bool _isLoading = false;
   bool _obscurePass = true;
 
   Future<void> _handleLogin() async {
-    if (_emailCtrl.text.isEmpty || _passCtrl.text.isEmpty) {
+    if (_usernameCtrl.text.isEmpty || _passCtrl.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Email dan Password wajib diisi")),
+        const SnackBar(content: Text("Username dan Password wajib diisi")),
       );
       return;
     }
@@ -26,31 +26,26 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isLoading = true);
 
     try {
-      // PERUBAHAN: Selalu kirim role 'admin'
+      // Panggil API Login
       final response = await ApiService.login(
-        _emailCtrl.text.trim(),
+        _usernameCtrl.text.trim(),
         _passCtrl.text.trim(),
-        'admin', 
       );
 
       if (!mounted) return;
       setState(() => _isLoading = false);
 
-      if (response['success'] == true) {
-        // Cek apakah akun ini benar-benar admin/petugas
-        if (response['role'] == 'admin' || response['role'] == 'petugas') {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => DashboardAdmin(
-                token: response['token'],
-                adminData: response['data'],
-              ),
+      // Cek Token (Backend baru mengembalikan 'access_token')
+      if (response.containsKey('access_token')) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DashboardAdmin(
+              token: response['access_token'],
+              adminData: response['data'], // Data petugas
             ),
-          );
-        } else {
-          _showError("Akun Anda tidak memiliki akses Admin.");
-        }
+          ),
+        );
       } else {
         _showError(response['message'] ?? 'Login Gagal');
       }
@@ -70,59 +65,29 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF5B2B9C), // Warna Identitas Admin
+      backgroundColor: const Color(0xFF5B2B9C),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Logo / Icon
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.local_parking_rounded, size: 64, color: Colors.white),
-              ),
-              const SizedBox(height: 24),
+              const Icon(Icons.local_parking_rounded, size: 80, color: Colors.white),
+              const SizedBox(height: 16),
+              const Text("ADMIN PARKIR", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 40),
               
-              const Text(
-                "TITIPINAJA",
-                style: TextStyle(
-                  fontSize: 28, 
-                  fontWeight: FontWeight.bold, 
-                  color: Colors.white,
-                  letterSpacing: 1.5,
-                ),
-              ),
-              const Text(
-                "Sistem Manajemen Parkir",
-                style: TextStyle(color: Colors.white70, fontSize: 16),
-              ),
-              
-              const SizedBox(height: 48),
-
-              // Card Login
               Card(
-                elevation: 8,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 child: Padding(
-                  padding: const EdgeInsets.all(32),
+                  padding: const EdgeInsets.all(24),
                   child: Column(
                     children: [
-                      const Text(
-                        "LOGIN PETUGAS",
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 24),
                       TextField(
-                        controller: _emailCtrl,
-                        decoration: InputDecoration(
-                          labelText: "Email",
-                          prefixIcon: const Icon(Icons.email_outlined),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        controller: _usernameCtrl, // Username
+                        decoration: const InputDecoration(
+                          labelText: "Username",
+                          prefixIcon: Icon(Icons.person),
+                          border: OutlineInputBorder(),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -131,37 +96,33 @@ class _LoginPageState extends State<LoginPage> {
                         obscureText: _obscurePass,
                         decoration: InputDecoration(
                           labelText: "Password",
-                          prefixIcon: const Icon(Icons.lock_outline),
+                          prefixIcon: const Icon(Icons.lock),
                           suffixIcon: IconButton(
                             icon: Icon(_obscurePass ? Icons.visibility : Icons.visibility_off),
                             onPressed: () => setState(() => _obscurePass = !_obscurePass),
                           ),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          border: const OutlineInputBorder(),
                         ),
                       ),
                       const SizedBox(height: 24),
                       SizedBox(
                         width: double.infinity,
+                        height: 50,
                         child: ElevatedButton(
                           onPressed: _isLoading ? null : _handleLogin,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF5B2B9C),
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
                           child: _isLoading 
-                            ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                            : const Text("MASUK", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            ? const CircularProgressIndicator(color: Colors.white) 
+                            : const Text("LOGIN"),
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
-              
-              const SizedBox(height: 24),
-              const Text("Versi 1.0.0", style: TextStyle(color: Colors.white38)),
+              )
             ],
           ),
         ),
