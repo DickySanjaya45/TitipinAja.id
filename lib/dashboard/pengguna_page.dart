@@ -4,7 +4,6 @@ import '../../services/api_service.dart';
 
 class PenggunaPage extends StatefulWidget {
   final String token;
-
   const PenggunaPage({super.key, required this.token});
 
   @override
@@ -12,16 +11,13 @@ class PenggunaPage extends StatefulWidget {
 }
 
 class _PenggunaPageState extends State<PenggunaPage> {
-  // State
   List<dynamic> _listPengguna = [];
   bool _isLoading = true;
 
-  // Controllers
+  // Controller Baru (Sesuai Backend)
   final _namaCtrl = TextEditingController();
   final _alamatCtrl = TextEditingController();
   final _telpCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
-  final _passCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -29,21 +25,14 @@ class _PenggunaPageState extends State<PenggunaPage> {
     _fetchData();
   }
 
-  // OPTIMISASI: Hapus controller dari memori
   @override
   void dispose() {
     _namaCtrl.dispose();
     _alamatCtrl.dispose();
     _telpCtrl.dispose();
-    _emailCtrl.dispose();
-    _passCtrl.dispose();
     super.dispose();
   }
 
-  // =======================
-  // 1. DATA OPERATIONS (API)
-  // =======================
-  
   Future<void> _fetchData() async {
     setState(() => _isLoading = true);
     try {
@@ -59,37 +48,31 @@ class _PenggunaPageState extends State<PenggunaPage> {
   }
 
   Future<void> _submitForm({int? id}) async {
-    if (_namaCtrl.text.isEmpty || _emailCtrl.text.isEmpty) {
-      _showMsg("Nama dan Email wajib diisi");
+    if (_namaCtrl.text.isEmpty || _telpCtrl.text.isEmpty) {
+      _showMsg("Nama dan No. Telepon wajib diisi");
       return;
     }
 
-    Navigator.pop(context); // Tutup dialog
+    Navigator.pop(context);
     setState(() => _isLoading = true);
 
     Map<String, dynamic> data = {
-      'nama_lengkap': _namaCtrl.text,
+      'nama': _namaCtrl.text, // Backend sekarang pakai 'nama'
       'alamat': _alamatCtrl.text,
       'no_telepon': _telpCtrl.text,
-      'email': _emailCtrl.text,
     };
-
-    // Password hanya dikirim jika diisi (untuk update) atau wajib (untuk create)
-    if (_passCtrl.text.isNotEmpty) {
-      data['password'] = _passCtrl.text;
-    }
 
     try {
       final response = id == null
           ? await ApiService.createPengguna(widget.token, data)
           : await ApiService.updatePengguna(id, widget.token, data);
 
-      if (response['success'] == true) {
+      if (response['success'] == true || response['data'] != null) {
         _showMsg(id == null ? "Pengguna ditambahkan" : "Data diperbarui");
         _clearCtrl();
         _fetchData();
       } else {
-        _showMsg("Gagal: ${response['message']}");
+        _showMsg("Gagal: ${response['message'] ?? 'Error'}");
         setState(() => _isLoading = false);
       }
     } catch (e) {
@@ -99,54 +82,36 @@ class _PenggunaPageState extends State<PenggunaPage> {
   }
 
   Future<void> _deleteData(int id) async {
-    Navigator.pop(context); // Tutup dialog
+    Navigator.pop(context);
     setState(() => _isLoading = true);
 
     try {
       final response = await ApiService.deletePengguna(id, widget.token);
-      if (response['success'] == true) {
-        _showMsg("Pengguna dihapus");
-        _fetchData();
-      } else {
-        _showMsg("Gagal menghapus");
-        setState(() => _isLoading = false);
-      }
+      _showMsg("Pengguna dihapus");
+      _fetchData();
     } catch (e) {
-      _showMsg("Error: $e");
+      _showMsg("Gagal menghapus");
       setState(() => _isLoading = false);
     }
   }
 
-  // =======================
-  // HELPER METHODS
-  // =======================
   void _clearCtrl() {
     _namaCtrl.clear();
     _alamatCtrl.clear();
     _telpCtrl.clear();
-    _emailCtrl.clear();
-    _passCtrl.clear();
   }
 
   void _showMsg(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  // =======================
-  // UI DIALOGS
-  // =======================
   void _openForm({Map<String, dynamic>? item}) {
     bool isEdit = item != null;
-
     if (isEdit) {
-      _namaCtrl.text = item['nama_lengkap'] ?? '';
+      _namaCtrl.text = item['nama'] ?? ''; // Pakai 'nama'
       _alamatCtrl.text = item['alamat'] ?? '';
-      _telpCtrl.text = item['no_telepon'] ?? '';
-      _emailCtrl.text = item['email'] ?? '';
-      _passCtrl.clear();
+      _telpCtrl.text = item['no_telepon']?.toString() ?? '';
     } else {
       _clearCtrl();
     }
@@ -155,92 +120,31 @@ class _PenggunaPageState extends State<PenggunaPage> {
       context: context,
       builder: (_) => AlertDialog(
         title: Text(isEdit ? "Edit Pengguna" : "Tambah Pengguna"),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildInput("Nama Lengkap", _namaCtrl),
-              const SizedBox(height: 12),
-              _buildInput("Email", _emailCtrl, isEmail: true),
-              const SizedBox(height: 12),
-              _buildInput("No. Telepon", _telpCtrl, isNumber: true),
-              const SizedBox(height: 12),
-              _buildInput("Alamat", _alamatCtrl, maxLines: 2),
-              const SizedBox(height: 12),
-              _buildInput(
-                isEdit ? "Password (Kosongkan jika tetap)" : "Password", 
-                _passCtrl, 
-                isPass: true
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Batal"),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF5B2B9C)),
-            onPressed: () {
-              int? id = isEdit ? (item['id_pengguna'] ?? item['id']) : null;
-              _submitForm(id: id);
-            },
-            child: Text(isEdit ? "Update" : "Simpan", style: const TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _openDeleteConfirm(Map<String, dynamic> item) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Hapus Pengguna?"),
-        content: Text("Yakin ingin menghapus ${item['nama_lengkap']}?"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => _deleteData(item['id_pengguna'] ?? item['id']),
-            child: const Text("Hapus", style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showDetail(Map<String, dynamic> item) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text(item['nama_lengkap'] ?? 'Detail'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("ID: ${item['id_pengguna'] ?? item['id']}"),
-            const SizedBox(height: 8),
-            Text("Email: ${item['email']}"),
-            const SizedBox(height: 8),
-            Text("Telp: ${item['no_telepon']}"),
-            const SizedBox(height: 8),
-            Text("Alamat: ${item['alamat']}"),
+            _buildInput("Nama Lengkap", _namaCtrl),
+            const SizedBox(height: 12),
+            _buildInput("No. Telepon", _telpCtrl, isNumber: true),
+            const SizedBox(height: 12),
+            _buildInput("Alamat", _alamatCtrl, maxLines: 2),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Tutup")),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
+          ElevatedButton(
+            onPressed: () => _submitForm(id: item?['id_pengguna'] ?? item?['id']),
+            child: const Text("Simpan"),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildInput(String label, TextEditingController ctrl, {bool isNumber = false, bool isEmail = false, bool isPass = false, int maxLines = 1}) {
+  Widget _buildInput(String label, TextEditingController ctrl, {bool isNumber = false, int maxLines = 1}) {
     return TextField(
       controller: ctrl,
-      keyboardType: isNumber ? TextInputType.phone : (isEmail ? TextInputType.emailAddress : TextInputType.text),
-      obscureText: isPass,
+      keyboardType: isNumber ? TextInputType.phone : TextInputType.text,
       maxLines: maxLines,
       decoration: InputDecoration(
         labelText: label,
@@ -250,56 +154,34 @@ class _PenggunaPageState extends State<PenggunaPage> {
     );
   }
 
-  // =======================
-  // MAIN UI
-  // =======================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const CustomAppBar(title: 'Data Pengguna'),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _listPengguna.isEmpty
-              ? const Center(child: Text("Belum ada data pengguna"))
-              : RefreshIndicator(
-                  onRefresh: _fetchData,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: _listPengguna.length,
-                    separatorBuilder: (ctx, i) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      final item = _listPengguna[index];
-                      // Safe Mapping
-                      String name = item['nama_lengkap'] ?? '-';
-                      String email = item['email'] ?? '-';
-                      String initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
-
-                      return Card(
-                        elevation: 2,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        child: ListTile(
-                          leading: CircleAvatar(child: Text(initial)),
-                          title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text(email),
-                          onTap: () => _showDetail(item),
-                          trailing: PopupMenuButton(
-                            onSelected: (val) => val == 'edit' 
-                                ? _openForm(item: item) 
-                                : _openDeleteConfirm(item),
-                            itemBuilder: (ctx) => [
-                              const PopupMenuItem(value: 'edit', child: Text("Edit")),
-                              const PopupMenuItem(value: 'del', child: Text("Hapus", style: TextStyle(color: Colors.red))),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+          : ListView.builder(
+              padding: const EdgeInsets.all(12),
+              itemCount: _listPengguna.length,
+              itemBuilder: (context, index) {
+                final item = _listPengguna[index];
+                return Card(
+                  child: ListTile(
+                    leading: CircleAvatar(child: Icon(Icons.person)),
+                    title: Text(item['nama'] ?? '-', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text("${item['no_telepon']} \n${item['alamat']}"),
+                    isThreeLine: true,
+                    trailing: IconButton(
+                      icon: const Icon(Icons.edit),
+                      onPressed: () => _openForm(item: item),
+                    ),
                   ),
-                ),
+                );
+              },
+            ),
       floatingActionButton: FloatingActionButton(
+        onPressed: () => _openForm(),
         backgroundColor: const Color(0xFF5B2B9C),
         child: const Icon(Icons.add, color: Colors.white),
-        onPressed: () => _openForm(),
       ),
     );
   }

@@ -10,15 +10,15 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final _usernameCtrl = TextEditingController(); // Ganti email jadi username
+  final _emailCtrl = TextEditingController(); // Controller Email
   final _passCtrl = TextEditingController();
   bool _isLoading = false;
   bool _obscurePass = true;
 
   Future<void> _handleLogin() async {
-    if (_usernameCtrl.text.isEmpty || _passCtrl.text.isEmpty) {
+    if (_emailCtrl.text.isEmpty || _passCtrl.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Username dan Password wajib diisi")),
+        const SnackBar(content: Text("Email dan Password wajib diisi")),
       );
       return;
     }
@@ -26,40 +26,42 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isLoading = true);
 
     try {
-      // Panggil API Login
+      // Panggil API login dengan parameter EMAIL
       final response = await ApiService.login(
-        _usernameCtrl.text.trim(),
+        _emailCtrl.text.trim(),
         _passCtrl.text.trim(),
       );
 
       if (!mounted) return;
       setState(() => _isLoading = false);
 
-      // Cek Token (Backend baru mengembalikan 'access_token')
       if (response.containsKey('access_token')) {
+        // Login Sukses
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder: (_) => DashboardAdmin(
               token: response['access_token'],
-              adminData: response['data'], // Data petugas
+              adminData: response['data'] ?? {},
             ),
           ),
         );
       } else {
-        _showError(response['message'] ?? 'Login Gagal');
+        // Login Gagal (tampilkan pesan dari server)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(response['message'] ?? 'Login Gagal'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
-      _showError("Gagal terhubung ke server.");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+      );
     }
-  }
-
-  void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: Colors.red),
-    );
   }
 
   @override
@@ -69,61 +71,89 @@ class _LoginPageState extends State<LoginPage> {
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              const Icon(Icons.local_parking_rounded, size: 80, color: Colors.white),
-              const SizedBox(height: 16),
-              const Text("ADMIN PARKIR", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 40),
-              
-              Card(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    children: [
-                      TextField(
-                        controller: _usernameCtrl, // Username
-                        decoration: const InputDecoration(
-                          labelText: "Username",
-                          prefixIcon: Icon(Icons.person),
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: _passCtrl,
-                        obscureText: _obscurePass,
-                        decoration: InputDecoration(
-                          labelText: "Password",
-                          prefixIcon: const Icon(Icons.lock),
-                          suffixIcon: IconButton(
-                            icon: Icon(_obscurePass ? Icons.visibility : Icons.visibility_off),
-                            onPressed: () => setState(() => _obscurePass = !_obscurePass),
-                          ),
-                          border: const OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : _handleLogin,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF5B2B9C),
-                            foregroundColor: Colors.white,
-                          ),
-                          child: _isLoading 
-                            ? const CircularProgressIndicator(color: Colors.white) 
-                            : const Text("LOGIN"),
-                        ),
-                      ),
-                    ],
+          child: Card(
+            elevation: 8,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.admin_panel_settings,
+                    size: 60,
+                    color: Color(0xFF5B2B9C),
                   ),
-                ),
-              )
-            ],
+                  const SizedBox(height: 16),
+                  const Text(
+                    "ADMIN LOGIN",
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    "TitipinAja Management System",
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 32),
+                  
+                  // INPUT EMAIL
+                  TextField(
+                    controller: _emailCtrl,
+                    keyboardType: TextInputType.emailAddress, // Keyboard tipe Email
+                    decoration: const InputDecoration(
+                      labelText: "Email",
+                      prefixIcon: Icon(Icons.email),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // INPUT PASSWORD
+                  TextField(
+                    controller: _passCtrl,
+                    obscureText: _obscurePass,
+                    decoration: InputDecoration(
+                      labelText: "Password",
+                      prefixIcon: const Icon(Icons.lock),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePass ? Icons.visibility : Icons.visibility_off,
+                        ),
+                        onPressed: () => setState(() => _obscurePass = !_obscurePass),
+                      ),
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _handleLogin,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF5B2B9C),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(color: Colors.white),
+                            )
+                          : const Text("MASUK"),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),

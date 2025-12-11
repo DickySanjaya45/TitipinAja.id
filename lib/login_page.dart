@@ -31,7 +31,6 @@ class _LoginPageState extends State<LoginPage> {
       final response = await ApiService.login(
         _emailCtrl.text.trim(),
         _passCtrl.text.trim(),
-        'admin',
       );
 
       if (!mounted) return;

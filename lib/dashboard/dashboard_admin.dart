@@ -3,9 +3,10 @@ import '../pages/login_page.dart';
 
 // Pages
 import 'pengguna_page.dart';
-import 'page_operasional.dart'; // NEW PAGE
+import 'page_operasional.dart'; // Halaman Utama Petugas
 import 'riwayat_page.dart';
-import 'motor_page.dart'; // Master Data Motor
+import 'motor_page.dart'; 
+import 'parkir_page.dart'; // Manajemen Slot
 
 class DashboardAdmin extends StatefulWidget {
   final String token;
@@ -34,19 +35,18 @@ class _DashboardAdminState extends State<DashboardAdmin> {
 
   @override
   Widget build(BuildContext context) {
+    // Daftar Halaman
     final List<Widget> pages = [
-      const _HomeAdminPlaceholder(), // Dashboard Overview sederhana
-      PageOperasional(
-        token: widget.token,
-      ), // CORE FEATURE: Masuk, Keluar, Bayar
-      MotorPage(token: widget.token), // Data Master Motor
-      PenggunaPage(token: widget.token), // Data Master Pengguna
-      RiwayatPage(token: widget.token), // Laporan
+      PageOperasional(token: widget.token), // CORE FEATURE: Masuk/Keluar
+      ParkirPage(token: widget.token),      // Manajemen Slot (ParkirSlotController)
+      MotorPage(token: widget.token),       // Master Data Motor
+      PenggunaPage(token: widget.token),    // Master Data Pengguna
+      RiwayatPage(token: widget.token),     // Laporan
     ];
 
     final List<String> titles = [
-      "Dashboard",
       "Operasional Parkir",
+      "Kelola Slot",
       "Data Motor",
       "Data Pengguna",
       "Riwayat Transaksi",
@@ -66,39 +66,14 @@ class _DashboardAdminState extends State<DashboardAdmin> {
         selectedIndex: _selectedIndex,
         onDestinationSelected: (i) => setState(() => _selectedIndex = i),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.dashboard), label: 'Home'),
           NavigationDestination(
-            icon: Icon(Icons.local_parking),
+            icon: Icon(Icons.local_parking_rounded),
             label: 'Operasional',
           ),
+          NavigationDestination(icon: Icon(Icons.grid_view), label: 'Slot'),
           NavigationDestination(icon: Icon(Icons.two_wheeler), label: 'Motor'),
           NavigationDestination(icon: Icon(Icons.people), label: 'User'),
           NavigationDestination(icon: Icon(Icons.history), label: 'Riwayat'),
-        ],
-      ),
-    );
-  }
-}
-
-class _HomeAdminPlaceholder extends StatelessWidget {
-  const _HomeAdminPlaceholder();
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.admin_panel_settings_outlined,
-            size: 100,
-            color: Colors.grey.shade300,
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            "Selamat Datang, Admin!",
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          const Text("Gunakan menu 'Operasional' untuk proses parkir."),
         ],
       ),
     );
