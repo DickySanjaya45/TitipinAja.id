@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import '../../services/api_service.dart';
 
 class PageOperasional extends StatefulWidget {
@@ -9,202 +10,405 @@ class PageOperasional extends StatefulWidget {
   State<PageOperasional> createState() => _PageOperasionalState();
 }
 
-class _PageOperasionalState extends State<PageOperasional> {
-  List<dynamic> _parkirAktif = [];
-  bool _isLoading = true;
+class _PageOperasionalState extends State<PageOperasional> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  bool _isLoading = false;
 
-  // Tarif per jam
-  final int _tarifPerJam = 2000;
-
-  // Controllers untuk Check-in Manual
+  // --- CONTROLLERS MASUK ---
+  final _namaUserCtrl = TextEditingController();
+  final _telpUserCtrl = TextEditingController();
   final _platCtrl = TextEditingController();
   final _merkCtrl = TextEditingController();
+  final _warnaCtrl = TextEditingController();
+
+  // --- CONTROLLERS KELUAR ---
+  final _kodeTransaksiCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _fetchData();
+    _tabController = TabController(length: 2, vsync: this);
   }
 
-  Future<void> _fetchData() async {
-    setState(() => _isLoading = true);
-    try {
-      // Mengambil data transaksi yang statusnya masih 'Aktif' / 'Masuk'
-      final rawData = await ApiService.getAktivitas(widget.token);
-      if (mounted) {
-        setState(() {
-          // Filter hanya yang statusnya belum selesai (Asumsi 'status' dari API)
-          _parkirAktif = rawData
-              .where((item) => item['status'] != 'Selesai')
-              .toList();
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
-    }
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _namaUserCtrl.dispose();
+    _telpUserCtrl.dispose();
+    _platCtrl.dispose();
+    _merkCtrl.dispose();
+    _warnaCtrl.dispose();
+    _kodeTransaksiCtrl.dispose();
+    super.dispose();
   }
 
-  // --- LOGIC CHECK-IN (MASUK) ---
-  Future<void> _prosesMasuk() async {
-    if (_platCtrl.text.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Plat nomor wajib diisi")));
+  // ===============================================================
+  // 🟢 LOGIC: PROSES MASUK (Check-In)
+  // Alur: Buat User -> Buat Motor -> Cari Slot -> Buat Transaksi
+  // ===============================================================
+  Future<void> _handleCheckIn() async {
+    if (_namaUserCtrl.text.isEmpty || _platCtrl.text.isEmpty) {
+      _showMsg("Nama Pengguna dan Plat Nomor wajib diisi!", Colors.red);
       return;
     }
 
-    Navigator.pop(context);
     setState(() => _isLoading = true);
 
-    // Kirim data ke API (Create Transaksi)
     try {
-      await ApiService.createTransaksi(widget.token, {
-        "plat_nomor": _platCtrl.text,
-        "merk": _merkCtrl.text, // Opsional jika API butuh
-        "status": "Aktif",
-        "waktu_masuk": DateTime.now().toIso8601String(), // Catat waktu sekarang
-        "total_biaya": 0, // Belum ada biaya
+      // 1. BUAT PENGGUNA BARU (Atau logic backend handle existing by phone)
+      final userRes = await ApiService.createPengguna(widget.token, {
+        "nama_lengkap": _namaUserCtrl.text,
+        "no_telepon": _telpUserCtrl.text,
+        "email": "-", // Dummy email jika tidak wajib
+        "alamat": "-",
       });
-      _platCtrl.clear();
-      _merkCtrl.clear();
-      _fetchData(); // Refresh list
-      _showMsg("Kendaraan Berhasil Masuk", Colors.green);
+
+      // Validasi ID User (sesuaikan dengan respons backend Anda)
+      int userId = userRes['data']?['id'] ?? userRes['data']?['id_pengguna'] ?? 0;
+      if (userId == 0) throw Exception("Gagal membuat data pengguna");
+
+      // 2. BUAT DATA MOTOR
+      final motorRes = await ApiService.createMotor(widget.token, {
+        "id_pengguna": userId,
+        "merk": _merkCtrl.text,
+        "plat_nomor": _platCtrl.text,
+        "warna": _warnaCtrl.text,
+        "tahun": DateTime.now().year,
+      });
+      
+      int motorId = motorRes['data']?['id'] ?? motorRes['data']?['id_motor'] ?? 0;
+      if (motorId == 0) throw Exception("Gagal membuat data motor");
+
+      // 3. CARI SLOT KOSONG (Ambil dari API Slot)
+      final slots = await ApiService.getSlotParkir(widget.token);
+      var emptySlot = slots.firstWhere(
+        (s) => s['status'] == 'Tersedia', 
+        orElse: () => null
+      );
+
+      if (emptySlot == null) throw Exception("Parkiran Penuh! Tidak ada slot tersedia.");
+      
+      int slotId = emptySlot['id'] ?? emptySlot['id_parkir_slot'];
+      String namaSlot = emptySlot['nomor_slot'] ?? "A-00";
+
+      // 4. BUAT TRANSAKSI (Start Timer di Server)
+      final transRes = await ApiService.createTransaksi(widget.token, {
+        "id_motor": motorId,
+        "id_parkir_slot": slotId,
+        "status": "Aktif",
+        "waktu_masuk": DateTime.now().toIso8601String(),
+        "total_biaya": 0
+      });
+
+      // 5. UPDATE STATUS SLOT JADI 'TERISI'
+      await ApiService.updateSlotParkir(slotId, widget.token, {
+        "status": "Terisi",
+        "nomor_slot": namaSlot, // Kirim ulang data lama agar tidak hilang
+        "lokasi": emptySlot['lokasi']
+      });
+
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+
+      // 6. TAMPILKAN STRUK / KODE QR
+      int transId = transRes['data']?['id'] ?? transRes['data']?['id_transaksi'];
+      _showStrukDialog(transId.toString(), namaSlot, _platCtrl.text);
+      
+      _clearInputMasuk();
+
     } catch (e) {
-      _showMsg("Gagal Check-in: $e", Colors.red);
-      _fetchData();
+      setState(() => _isLoading = false);
+      _showMsg("Gagal Check-In: $e", Colors.red);
     }
   }
 
-  // --- LOGIC CHECK-OUT (KELUAR & BAYAR) ---
-  void _konfirmasiKeluar(Map<String, dynamic> item) {
-    // 1. Hitung Durasi
-    DateTime waktuMasuk =
-        DateTime.tryParse(item['waktu_masuk'] ?? '') ?? DateTime.now();
-    DateTime waktuKeluar = DateTime.now();
-
-    Duration durasi = waktuKeluar.difference(waktuMasuk);
-    int jamParkir = durasi.inHours;
-    if (durasi.inMinutes % 60 > 0)
-      jamParkir++; // Pembulatan ke atas (1 jam 5 menit = 2 jam)
-    if (jamParkir == 0) jamParkir = 1; // Minimal 1 jam
-
-    // 2. Hitung Biaya
-    int totalBiaya = jamParkir * _tarifPerJam;
-
+  void _showStrukDialog(String kode, String slot, String plat) {
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text("Konfirmasi Pembayaran"),
+        title: const Center(child: Text("TIKET PARKIR", style: TextStyle(fontWeight: FontWeight.bold))),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _rowDetail(
-              "Kendaraan",
-              item['motor']?['merk'] ?? item['plat_nomor'] ?? '-',
-            ),
-            const Divider(),
-            _rowDetail("Waktu Masuk", _formatTime(waktuMasuk)),
-            _rowDetail("Waktu Keluar", _formatTime(waktuKeluar)),
-            _rowDetail("Durasi", "$jamParkir Jam"),
+            const Icon(Icons.qr_code_2, size: 100), // Simulasi QR
             const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(10),
-              color: Colors.green.shade50,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    "TOTAL BAYAR:",
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    "Rp $totalBiaya",
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: Colors.green,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 5),
-            const Text(
-              "*Tarif Rp 2.000 / jam",
-              style: TextStyle(fontSize: 10, color: Colors.grey),
-            ),
+            Text(kode, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2)),
+            const Text("Kode Transaksi", style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Divider(thickness: 2),
+            _rowDetail("Slot Parkir", slot),
+            _rowDetail("Plat Nomor", plat),
+            _rowDetail("Waktu", _formatTime(DateTime.now())),
+            const SizedBox(height: 10),
+            const Text("Simpan struk ini untuk pengambilan!", style: TextStyle(fontSize: 12, color: Colors.red), textAlign: TextAlign.center),
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text("Batal"),
-          ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF5B2B9C),
-            ),
-            onPressed: () {
-              Navigator.pop(ctx);
-              _prosesBayar(item['id_transaksi'] ?? item['id'], totalBiaya);
-            },
-            child: const Text(
-              "Bayar & Selesai",
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
+            onPressed: () => Navigator.pop(ctx),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF5B2B9C)),
+            child: const Text("Cetak / Selesai", style: TextStyle(color: Colors.white)),
+          )
         ],
       ),
     );
   }
 
-  Future<void> _prosesBayar(int id, int biaya) async {
+  // ===============================================================
+  // 🔴 LOGIC: PROSES KELUAR (Check-Out)
+  // Alur: Input Kode -> Hitung Biaya -> Bayar -> Update Slot & Transaksi
+  // ===============================================================
+  Future<void> _handleCheckOutSearch() async {
+    if (_kodeTransaksiCtrl.text.isEmpty) {
+      _showMsg("Masukkan Kode Transaksi", Colors.red);
+      return;
+    }
+
     setState(() => _isLoading = true);
+
     try {
-      // Update Transaksi di API
-      await ApiService.updateTransaksi(id, widget.token, {
-        "status": "Selesai",
-        "total_biaya": biaya,
-        "waktu_keluar": DateTime.now().toIso8601String(),
-      });
-      _showMsg("Transaksi Selesai. Pembayaran Berhasil.", Colors.green);
-      _fetchData();
-    } catch (e) {
-      _showMsg("Gagal memproses pembayaran: $e", Colors.red);
+      // 1. CARI DATA TRANSAKSI
+      // Idealnya ada endpoint: GET /transaksi/{id}. 
+      // Disini kita filter dari getAll (kurang efisien tapi workable untuk demo)
+      final allTrans = await ApiService.getTransaksi(widget.token);
+      final transData = allTrans.firstWhere(
+        (t) => (t['id'] ?? t['id_transaksi']).toString() == _kodeTransaksiCtrl.text,
+        orElse: () => null
+      );
+
+      if (transData == null) throw Exception("Kode Transaksi tidak ditemukan.");
+      if (transData['status'] == 'Selesai') throw Exception("Transaksi ini sudah selesai dibayar.");
+
+      // 2. HITUNG BIAYA
+      DateTime masuk = DateTime.parse(transData['waktu_masuk'] ?? transData['created_at']);
+      DateTime keluar = DateTime.now();
+      Duration durasi = keluar.difference(masuk);
+      
+      int jam = durasi.inHours;
+      if (durasi.inMinutes % 60 > 0) jam++; // Pembulatan ke atas
+      if (jam < 1) jam = 1; // Minimal 1 jam
+
+      int tarifPerJam = 2000;
+      int totalBayar = jam * tarifPerJam;
+
       setState(() => _isLoading = false);
+
+      // 3. TAMPILKAN KONFIRMASI BAYAR
+      _showPaymentDialog(transData, totalBayar, jam);
+
+    } catch (e) {
+      setState(() => _isLoading = false);
+      _showMsg("Error: $e", Colors.red);
     }
   }
 
-  // --- UI HELPERS ---
-  void _showFormMasuk() {
+  void _showPaymentDialog(Map<String, dynamic> transData, int total, int durasi) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Kendaraan Masuk"),
+      builder: (ctx) => AlertDialog(
+        title: const Text("Pembayaran Parkir"),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
-              controller: _platCtrl,
-              decoration: const InputDecoration(
-                labelText: "Plat Nomor (Cth: AE 1234 XX)",
-              ),
-            ),
+            _rowDetail("Kode", _kodeTransaksiCtrl.text),
+            _rowDetail("Durasi", "$durasi Jam"),
+            const Divider(),
+            Text("Rp $total", style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.green)),
+            const SizedBox(height: 20),
+            const Text("Pilih Metode Pembayaran:"),
             const SizedBox(height: 10),
-            TextField(
-              controller: _merkCtrl,
-              decoration: const InputDecoration(labelText: "Merk (Opsional)"),
-            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _paymentButton(ctx, "CASH", Icons.money, Colors.green, () => _processPayment(transData, total, "Cash")),
+                _paymentButton(ctx, "QRIS", Icons.qr_code, Colors.blue, () => _processPayment(transData, total, "QRIS")),
+              ],
+            )
           ],
         ),
-        actions: [
-          ElevatedButton(
-            onPressed: _prosesMasuk,
-            child: const Text("Check In"),
-          ),
+      ),
+    );
+  }
+
+  Widget _paymentButton(BuildContext ctx, String label, IconData icon, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: () {
+        Navigator.pop(ctx);
+        onTap();
+      },
+      child: Column(
+        children: [
+          CircleAvatar(radius: 25, backgroundColor: color.withOpacity(0.1), child: Icon(icon, color: color)),
+          const SizedBox(height: 4),
+          Text(label, style: const TextStyle(fontWeight: FontWeight.bold))
         ],
+      ),
+    );
+  }
+
+  Future<void> _processPayment(Map<String, dynamic> transData, int total, String metode) async {
+    setState(() => _isLoading = true);
+    try {
+      int transId = transData['id'] ?? transData['id_transaksi'];
+      int slotId = transData['id_parkir_slot'] ?? 0;
+
+      // 1. UPDATE TRANSAKSI SELESAI
+      await ApiService.updateTransaksi(transId, widget.token, {
+        "status": "Selesai",
+        "total_biaya": total,
+        "waktu_keluar": DateTime.now().toIso8601String(),
+        "metode_pembayaran": metode // Pastikan backend terima field ini
+      });
+
+      // 2. KOSONGKAN SLOT PARKIR
+      if (slotId != 0) {
+        // Kita butuh data slot lama untuk update status doang
+        // Asumsi data slot minimal ada 'nomor_slot'
+        await ApiService.updateSlotParkir(slotId, widget.token, {
+          "status": "Tersedia",
+          "nomor_slot": transData['slot']?['nomor_slot'] ?? "X", // Fallback
+          "lokasi": transData['slot']?['lokasi'] ?? "-"
+        });
+      }
+
+      setState(() {
+        _isLoading = false;
+        _kodeTransaksiCtrl.clear();
+      });
+      _showMsg("Pembayaran Berhasil! Slot telah dikosongkan.", Colors.green);
+
+    } catch (e) {
+      setState(() => _isLoading = false);
+      _showMsg("Gagal memproses pembayaran: $e", Colors.red);
+    }
+  }
+
+  // ===============================================================
+  // 🖌️ UI UTAMA
+  // ===============================================================
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FA),
+      appBar: AppBar(
+        title: const Text("Operasional Parkir"),
+        backgroundColor: const Color(0xFF5B2B9C),
+        foregroundColor: Colors.white,
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: Colors.amber,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          tabs: const [
+            Tab(icon: Icon(Icons.login), text: "KEDATANGAN"),
+            Tab(icon: Icon(Icons.logout), text: "PENGAMBILAN"),
+          ],
+        ),
+      ),
+      body: _isLoading 
+        ? const Center(child: CircularProgressIndicator())
+        : TabBarView(
+            controller: _tabController,
+            children: [
+              _buildFormMasuk(),
+              _buildFormKeluar(),
+            ],
+          ),
+    );
+  }
+
+  Widget _buildFormMasuk() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text("Data Pengguna", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const SizedBox(height: 10),
+          _input(_namaUserCtrl, "Nama Pengguna", Icons.person),
+          const SizedBox(height: 10),
+          _input(_telpUserCtrl, "No. Telepon", Icons.phone, isNumber: true),
+          
+          const SizedBox(height: 24),
+          const Text("Data Kendaraan", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const SizedBox(height: 10),
+          _input(_platCtrl, "Plat Nomor (Wajib)", Icons.confirmation_number_outlined),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(child: _input(_merkCtrl, "Merk (Honda/Yamaha)", Icons.motorcycle)),
+              const SizedBox(width: 10),
+              Expanded(child: _input(_warnaCtrl, "Warna", Icons.color_lens)),
+            ],
+          ),
+          
+          const SizedBox(height: 30),
+          ElevatedButton.icon(
+            onPressed: _handleCheckIn,
+            icon: const Icon(Icons.save),
+            label: const Text("PROSES MASUK & CETAK TIKET"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF5B2B9C),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFormKeluar() {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.qr_code_scanner, size: 80, color: Colors.grey),
+          const SizedBox(height: 20),
+          const Text("Scan QR / Input Kode", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 20),
+          TextField(
+            controller: _kodeTransaksiCtrl,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 24, letterSpacing: 2, fontWeight: FontWeight.bold),
+            decoration: InputDecoration(
+              hintText: "ID TRANSAKSI",
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              filled: true,
+              fillColor: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _handleCheckOutSearch,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange.shade700,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+              child: const Text("CEK BIAYA & KELUAR"),
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  // --- WIDGET HELPERS ---
+  Widget _input(TextEditingController ctrl, String label, IconData icon, {bool isNumber = false}) {
+    return TextField(
+      controller: ctrl,
+      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, size: 20),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        isDense: true,
+        filled: true,
+        fillColor: Colors.white,
       ),
     );
   }
@@ -216,86 +420,25 @@ class _PageOperasionalState extends State<PageOperasional> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: const TextStyle(color: Colors.grey)),
-          Text(val, style: const TextStyle(fontWeight: FontWeight.w600)),
+          Text(val, style: const TextStyle(fontWeight: FontWeight.bold)),
         ],
       ),
     );
   }
 
-  String _formatTime(DateTime dt) {
-    return "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+  void _clearInputMasuk() {
+    _namaUserCtrl.clear();
+    _telpUserCtrl.clear();
+    _platCtrl.clear();
+    _merkCtrl.clear();
+    _warnaCtrl.clear();
   }
 
   void _showMsg(String msg, Color color) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(msg), backgroundColor: color));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: color));
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _parkirAktif.isEmpty
-          ? const Center(child: Text("Tidak ada kendaraan parkir saat ini"))
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _parkirAktif.length,
-              itemBuilder: (ctx, i) {
-                final item = _parkirAktif[i];
-                final String plat =
-                    item['plat_nomor'] ??
-                    item['motor']?['plat_nomor'] ??
-                    'Tanpa Plat';
-                final String masuk = item['waktu_masuk'] != null
-                    ? _formatTime(DateTime.parse(item['waktu_masuk']))
-                    : '-';
-
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.green.withOpacity(0.1),
-                      child: const Icon(
-                        Icons.local_parking,
-                        color: Colors.green,
-                      ),
-                    ),
-                    title: Text(
-                      plat,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
-                    ),
-                    subtitle: Text("Masuk jam: $masuk"),
-                    trailing: ElevatedButton(
-                      onPressed: () => _konfirmasiKeluar(item),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red.shade50,
-                        foregroundColor: Colors.red,
-                      ),
-                      child: const Text("KELUAR"),
-                    ),
-                  ),
-                );
-              },
-            ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showFormMasuk,
-        backgroundColor: const Color(0xFF5B2B9C),
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text(
-          "Kendaraan Masuk",
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
-    );
+  String _formatTime(DateTime dt) {
+    return "${dt.hour.toString().padLeft(2,'0')}:${dt.minute.toString().padLeft(2,'0')}";
   }
 }

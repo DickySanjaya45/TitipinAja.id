@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'pages/login_page.dart';
-import 'dashboard/dashboard_admin.dart';
+import 'pages/login_page.dart'; 
 
 void main() {
+  // Set status bar transparan agar tampilan lebih modern
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.dark,
     ),
   );
-  runApp(const TitipinAjaAdminApp());
+  runApp(const TitipinAjaApp());
 }
 
-class TitipinAjaAdminApp extends StatelessWidget {
-  const TitipinAjaAdminApp({super.key});
+class TitipinAjaApp extends StatelessWidget {
+  const TitipinAjaApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -23,24 +23,19 @@ class TitipinAjaAdminApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF5F7FA),
+        // Warna tema utama (Ungu)
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF5B2B9C), // Warna Ungu Admin
+          seedColor: const Color(0xFF5B2B9C),
           primary: const Color(0xFF5B2B9C),
-          secondary: const Color(0xFFFFC107),
         ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.white,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 16,
-          ),
+        scaffoldBackgroundColor: const Color(0xFFF5F7FA),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF5B2B9C),
+          foregroundColor: Colors.white,
+          centerTitle: true,
         ),
       ),
-      // Routing langsung ke Login
-      home: const LoginPage(),
+      home: const LoginPage(), // Langsung ke Login Admin
     );
   }
 }
