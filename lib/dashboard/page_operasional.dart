@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:async';
 import '../../services/api_service.dart';
 
 class PageOperasional extends StatefulWidget {
@@ -16,6 +15,7 @@ class _PageOperasionalState extends State<PageOperasional> with SingleTickerProv
 
   // --- CONTROLLERS MASUK ---
   final _namaUserCtrl = TextEditingController();
+  final _alamatUserCtrl = TextEditingController(); // TAMBAHAN: Input Alamat
   final _telpUserCtrl = TextEditingController();
   final _platCtrl = TextEditingController();
   final _merkCtrl = TextEditingController();
@@ -34,6 +34,7 @@ class _PageOperasionalState extends State<PageOperasional> with SingleTickerProv
   void dispose() {
     _tabController.dispose();
     _namaUserCtrl.dispose();
+    _alamatUserCtrl.dispose(); // Jangan lupa dispose
     _telpUserCtrl.dispose();
     _platCtrl.dispose();
     _merkCtrl.dispose();
@@ -44,77 +45,47 @@ class _PageOperasionalState extends State<PageOperasional> with SingleTickerProv
 
   // ===============================================================
   // 🟢 LOGIC: PROSES MASUK (Check-In)
-  // Alur: Buat User -> Buat Motor -> Cari Slot -> Buat Transaksi
   // ===============================================================
   Future<void> _handleCheckIn() async {
-    if (_namaUserCtrl.text.isEmpty || _platCtrl.text.isEmpty) {
-      _showMsg("Nama Pengguna dan Plat Nomor wajib diisi!", Colors.red);
+    // Validasi Input
+    if (_namaUserCtrl.text.isEmpty || 
+        _alamatUserCtrl.text.isEmpty || 
+        _telpUserCtrl.text.isEmpty || 
+        _platCtrl.text.isEmpty || 
+        _merkCtrl.text.isEmpty) {
+      _showMsg("Mohon lengkapi semua data (Nama, Alamat, Telp, Plat, Merk)!", Colors.red);
       return;
     }
 
     setState(() => _isLoading = true);
 
     try {
-      // 1. BUAT PENGGUNA BARU (Atau logic backend handle existing by phone)
-      final userRes = await ApiService.createPengguna(widget.token, {
-        "nama_lengkap": _namaUserCtrl.text,
-        "no_telepon": _telpUserCtrl.text,
-        "email": "-", // Dummy email jika tidak wajib
-        "alamat": "-",
-      });
-
-      // Validasi ID User (sesuaikan dengan respons backend Anda)
-      int userId = userRes['data']?['id'] ?? userRes['data']?['id_pengguna'] ?? 0;
-      if (userId == 0) throw Exception("Gagal membuat data pengguna");
-
-      // 2. BUAT DATA MOTOR
-      final motorRes = await ApiService.createMotor(widget.token, {
-        "id_pengguna": userId,
-        "merk": _merkCtrl.text,
+      // Panggil SATU Endpoint CheckIn saja (Backend yang akan handle logic User/Motor/Slot)
+      final response = await ApiService.checkIn(widget.token, {
+        "nama": _namaUserCtrl.text,           // Sesuai DB baru
+        "alamat": _alamatUserCtrl.text,       // Sesuai DB baru
+        "no_telepon": _telpUserCtrl.text,     // Sesuai DB baru
         "plat_nomor": _platCtrl.text,
-        "warna": _warnaCtrl.text,
-        "tahun": DateTime.now().year,
-      });
-      
-      int motorId = motorRes['data']?['id'] ?? motorRes['data']?['id_motor'] ?? 0;
-      if (motorId == 0) throw Exception("Gagal membuat data motor");
-
-      // 3. CARI SLOT KOSONG (Ambil dari API Slot)
-      final slots = await ApiService.getSlotParkir(widget.token);
-      var emptySlot = slots.firstWhere(
-        (s) => s['status'] == 'Tersedia', 
-        orElse: () => null
-      );
-
-      if (emptySlot == null) throw Exception("Parkiran Penuh! Tidak ada slot tersedia.");
-      
-      int slotId = emptySlot['id'] ?? emptySlot['id_parkir_slot'];
-      String namaSlot = emptySlot['nomor_slot'] ?? "A-00";
-
-      // 4. BUAT TRANSAKSI (Start Timer di Server)
-      final transRes = await ApiService.createTransaksi(widget.token, {
-        "id_motor": motorId,
-        "id_parkir_slot": slotId,
-        "status": "Aktif",
-        "waktu_masuk": DateTime.now().toIso8601String(),
-        "total_biaya": 0
-      });
-
-      // 5. UPDATE STATUS SLOT JADI 'TERISI'
-      await ApiService.updateSlotParkir(slotId, widget.token, {
-        "status": "Terisi",
-        "nomor_slot": namaSlot, // Kirim ulang data lama agar tidak hilang
-        "lokasi": emptySlot['lokasi']
+        "merk_motor": _merkCtrl.text,
+        "warna": _warnaCtrl.text.isEmpty ? "-" : _warnaCtrl.text,
       });
 
       if (!mounted) return;
       setState(() => _isLoading = false);
 
-      // 6. TAMPILKAN STRUK / KODE QR
-      int transId = transRes['data']?['id'] ?? transRes['data']?['id_transaksi'];
-      _showStrukDialog(transId.toString(), namaSlot, _platCtrl.text);
-      
-      _clearInputMasuk();
+      if (response['success'] == true) {
+        final data = response['data'];
+        // Tampilkan Struk dari respon backend
+        // Backend mengembalikan: tiket, slot, dll
+        _showStrukDialog(
+          data['tiket'] ?? data['kode_tiket'] ?? '-', 
+          data['slot'] ?? data['lokasi_parkir'] ?? 'Auto',
+          _platCtrl.text
+        );
+        _clearInputMasuk();
+      } else {
+        _showMsg(response['message'] ?? "Gagal Check-In", Colors.red);
+      }
 
     } catch (e) {
       setState(() => _isLoading = false);
@@ -131,14 +102,13 @@ class _PageOperasionalState extends State<PageOperasional> with SingleTickerProv
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.qr_code_2, size: 100), // Simulasi QR
+            const Icon(Icons.qr_code_2, size: 100),
             const SizedBox(height: 10),
             Text(kode, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2)),
             const Text("Kode Transaksi", style: TextStyle(color: Colors.grey, fontSize: 12)),
             const Divider(thickness: 2),
-            _rowDetail("Slot Parkir", slot),
+            _rowDetail("Lokasi Parkir", slot),
             _rowDetail("Plat Nomor", plat),
-            _rowDetail("Waktu", _formatTime(DateTime.now())),
             const SizedBox(height: 10),
             const Text("Simpan struk ini untuk pengambilan!", style: TextStyle(fontSize: 12, color: Colors.red), textAlign: TextAlign.center),
           ],
@@ -156,7 +126,6 @@ class _PageOperasionalState extends State<PageOperasional> with SingleTickerProv
 
   // ===============================================================
   // 🔴 LOGIC: PROSES KELUAR (Check-Out)
-  // Alur: Input Kode -> Hitung Biaya -> Bayar -> Update Slot & Transaksi
   // ===============================================================
   Future<void> _handleCheckOutSearch() async {
     if (_kodeTransaksiCtrl.text.isEmpty) {
@@ -167,34 +136,21 @@ class _PageOperasionalState extends State<PageOperasional> with SingleTickerProv
     setState(() => _isLoading = true);
 
     try {
-      // 1. CARI DATA TRANSAKSI
-      // Idealnya ada endpoint: GET /transaksi/{id}. 
-      // Disini kita filter dari getAll (kurang efisien tapi workable untuk demo)
-      final allTrans = await ApiService.getTransaksi(widget.token);
-      final transData = allTrans.firstWhere(
-        (t) => (t['id'] ?? t['id_transaksi']).toString() == _kodeTransaksiCtrl.text,
-        orElse: () => null
-      );
-
-      if (transData == null) throw Exception("Kode Transaksi tidak ditemukan.");
-      if (transData['status'] == 'Selesai') throw Exception("Transaksi ini sudah selesai dibayar.");
-
-      // 2. HITUNG BIAYA
-      DateTime masuk = DateTime.parse(transData['waktu_masuk'] ?? transData['created_at']);
-      DateTime keluar = DateTime.now();
-      Duration durasi = keluar.difference(masuk);
+      // Panggil API Cek Tiket
+      final res = await ApiService.cekTiket(widget.token, _kodeTransaksiCtrl.text.trim());
       
-      int jam = durasi.inHours;
-      if (durasi.inMinutes % 60 > 0) jam++; // Pembulatan ke atas
-      if (jam < 1) jam = 1; // Minimal 1 jam
-
-      int tarifPerJam = 2000;
-      int totalBayar = jam * tarifPerJam;
-
       setState(() => _isLoading = false);
 
-      // 3. TAMPILKAN KONFIRMASI BAYAR
-      _showPaymentDialog(transData, totalBayar, jam);
+      if (res['success'] == true) {
+        final data = res['data'];
+        _showPaymentDialog(
+          data, 
+          int.tryParse(data['total_tagihan'].toString()) ?? 0, 
+          data['durasi_jam'].toString()
+        );
+      } else {
+        _showMsg(res['message'] ?? "Tiket tidak ditemukan", Colors.red);
+      }
 
     } catch (e) {
       setState(() => _isLoading = false);
@@ -202,7 +158,7 @@ class _PageOperasionalState extends State<PageOperasional> with SingleTickerProv
     }
   }
 
-  void _showPaymentDialog(Map<String, dynamic> transData, int total, int durasi) {
+  void _showPaymentDialog(Map<String, dynamic> data, int total, String durasi) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -210,7 +166,8 @@ class _PageOperasionalState extends State<PageOperasional> with SingleTickerProv
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _rowDetail("Kode", _kodeTransaksiCtrl.text),
+            _rowDetail("Kode", data['kode_tiket']),
+            _rowDetail("Plat", data['plat_nomor']),
             _rowDetail("Durasi", "$durasi Jam"),
             const Divider(),
             Text("Rp $total", style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.green)),
@@ -220,8 +177,8 @@ class _PageOperasionalState extends State<PageOperasional> with SingleTickerProv
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _paymentButton(ctx, "CASH", Icons.money, Colors.green, () => _processPayment(transData, total, "Cash")),
-                _paymentButton(ctx, "QRIS", Icons.qr_code, Colors.blue, () => _processPayment(transData, total, "QRIS")),
+                _paymentButton(ctx, "CASH", Icons.money, Colors.green, () => _processPayment(data['kode_tiket'], "Cash")),
+                _paymentButton(ctx, "QRIS", Icons.qr_code, Colors.blue, () => _processPayment(data['kode_tiket'], "QRIS")),
               ],
             )
           ],
@@ -246,36 +203,22 @@ class _PageOperasionalState extends State<PageOperasional> with SingleTickerProv
     );
   }
 
-  Future<void> _processPayment(Map<String, dynamic> transData, int total, String metode) async {
+  Future<void> _processPayment(String kodeTiket, String metode) async {
     setState(() => _isLoading = true);
     try {
-      int transId = transData['id'] ?? transData['id_transaksi'];
-      int slotId = transData['id_parkir_slot'] ?? 0;
-
-      // 1. UPDATE TRANSAKSI SELESAI
-      await ApiService.updateTransaksi(transId, widget.token, {
-        "status": "Selesai",
-        "total_biaya": total,
-        "waktu_keluar": DateTime.now().toIso8601String(),
-        "metode_pembayaran": metode // Pastikan backend terima field ini
-      });
-
-      // 2. KOSONGKAN SLOT PARKIR
-      if (slotId != 0) {
-        // Kita butuh data slot lama untuk update status doang
-        // Asumsi data slot minimal ada 'nomor_slot'
-        await ApiService.updateSlotParkir(slotId, widget.token, {
-          "status": "Tersedia",
-          "nomor_slot": transData['slot']?['nomor_slot'] ?? "X", // Fallback
-          "lokasi": transData['slot']?['lokasi'] ?? "-"
-        });
-      }
+      // Panggil API Checkout
+      final res = await ApiService.checkOut(widget.token, kodeTiket, metode);
 
       setState(() {
         _isLoading = false;
         _kodeTransaksiCtrl.clear();
       });
-      _showMsg("Pembayaran Berhasil! Slot telah dikosongkan.", Colors.green);
+
+      if (res['success'] == true) {
+        _showMsg("Pembayaran Berhasil! Slot telah dikosongkan.", Colors.green);
+      } else {
+        _showMsg(res['message'] ?? "Gagal Checkout", Colors.red);
+      }
 
     } catch (e) {
       setState(() => _isLoading = false);
@@ -323,13 +266,18 @@ class _PageOperasionalState extends State<PageOperasional> with SingleTickerProv
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // BAGIAN USER
           const Text("Data Pengguna", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 10),
-          _input(_namaUserCtrl, "Nama Pengguna", Icons.person),
+          _input(_namaUserCtrl, "Nama Pengguna (Wajib)", Icons.person),
           const SizedBox(height: 10),
-          _input(_telpUserCtrl, "No. Telepon", Icons.phone, isNumber: true),
+          _input(_alamatUserCtrl, "Alamat (Wajib)", Icons.home), // Field Baru
+          const SizedBox(height: 10),
+          _input(_telpUserCtrl, "No. Telepon (Wajib)", Icons.phone, isNumber: true),
           
           const SizedBox(height: 24),
+          
+          // BAGIAN MOTOR
           const Text("Data Kendaraan", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 10),
           _input(_platCtrl, "Plat Nomor (Wajib)", Icons.confirmation_number_outlined),
@@ -338,7 +286,7 @@ class _PageOperasionalState extends State<PageOperasional> with SingleTickerProv
             children: [
               Expanded(child: _input(_merkCtrl, "Merk (Honda/Yamaha)", Icons.motorcycle)),
               const SizedBox(width: 10),
-              Expanded(child: _input(_warnaCtrl, "Warna", Icons.color_lens)),
+              Expanded(child: _input(_warnaCtrl, "Warna (Opsional)", Icons.color_lens)),
             ],
           ),
           
@@ -373,7 +321,7 @@ class _PageOperasionalState extends State<PageOperasional> with SingleTickerProv
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 24, letterSpacing: 2, fontWeight: FontWeight.bold),
             decoration: InputDecoration(
-              hintText: "ID TRANSAKSI",
+              hintText: "KODE TIKET",
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               filled: true,
               fillColor: Colors.white,
@@ -428,6 +376,7 @@ class _PageOperasionalState extends State<PageOperasional> with SingleTickerProv
 
   void _clearInputMasuk() {
     _namaUserCtrl.clear();
+    _alamatUserCtrl.clear();
     _telpUserCtrl.clear();
     _platCtrl.clear();
     _merkCtrl.clear();
@@ -436,9 +385,5 @@ class _PageOperasionalState extends State<PageOperasional> with SingleTickerProv
 
   void _showMsg(String msg, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: color));
-  }
-
-  String _formatTime(DateTime dt) {
-    return "${dt.hour.toString().padLeft(2,'0')}:${dt.minute.toString().padLeft(2,'0')}";
   }
 }
